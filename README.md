@@ -1,8 +1,12 @@
-﻿# FsNes
+﻿FsNes
+
+*****
+
+# Description
 Sample source code of a "Nintendo Entertainment System" Emulator in Functional Programming.
 It is targeted to be completed during 2019.
 
-# Dependency
+# Requirement
 Language: Microsoft F#
 Library: FSharp.Core 4.6.0, Microsoft.NETCore.App 3.0.0-alpha-27128-4
 
@@ -10,6 +14,13 @@ Library: FSharp.Core 4.6.0, Microsoft.NETCore.App 3.0.0-alpha-27128-4
 1. Aim for cross platform as much as possible.
 2. Make it with immutable coding except multi-thread, GUI, memory.
 3. Initially we will use WPF to create a GUI.
+
+# Goal
+1. Completion of the emulator
+2. Completion of Disassembler
+3. Completion of Debugger
+4. Completion of Assembler
+5. Cooperation with Visual Studio
 
 # Licence
 MIT Licence
@@ -22,11 +33,11 @@ Nesdev wiki
 
 **********
 
-# FsNes
+# 概要
 関数型言語によるファミコンエミュレータのサンプルソースコード。
 2019年中を目標とする。
 
-# 使用ライブラリと言語
+# 必要ライブラリ
 言語: Microsoft F#
 Library: FSharp.Core 4.6.0, Microsoft.NETCore.App 3.0.0-alpha-27128-4
 
@@ -40,7 +51,7 @@ Library: FSharp.Core 4.6.0, Microsoft.NETCore.App 3.0.0-alpha-27128-4
 2. ディスアセンブラの作成
 3. デバッガーの作成
 4. アセンブラの作成
-5. Visual Studio とのIDE連携
+5. Visual Studio との連携
 
 # ライセンス
 MIT Licence
