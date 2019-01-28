@@ -7,7 +7,13 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsNes", "FsNes\FsNes.fsproj
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsNes.Test", "FsNes.Test\FsNes.Test.fsproj", "{01A021BB-3615-49E2-B5AC-6A790C907228}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsNes.Core", "FsNes.Core\FsNes.Core.fsproj", "{680AF281-1F38-4967-8FC9-4ED73206309A}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsNes.Core", "FsNes.Core\FsNes.Core.fsproj", "{680AF281-1F38-4967-8FC9-4ED73206309A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2D19C445-8167-45E5-9A08-4F84A0F53D1A}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
