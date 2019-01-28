@@ -3,16 +3,16 @@
 *****
 
 # Description
-Sample source code of a "Nintendo Entertainment System" Emulator in Functional Programming.
+Sample source code of a "Nintendo Entertainment System" Emulator in Functional Programming.  
 It is targeted to be completed during 2019.
 
 # Requirement
-Language: Microsoft F#
+Language: Microsoft F#  
 Library: FSharp.Core 4.6.0, Microsoft.NETCore.App 3.0.0-alpha-27128-4
 
 # Coding constraints
-1. Aim for cross platform as much as possible.
-2. Make it with immutable coding except multi-thread, GUI, memory.
+1. Aim for cross platform as much as possible.  
+2. Make it with immutable coding except multi-thread, GUI, memory.  
 3. Initially we will use WPF to create a GUI.
 
 # Goal
@@ -34,11 +34,11 @@ Nesdev wiki
 **********
 
 # 概要
-関数型言語によるファミコンエミュレータのサンプルソースコード。
+関数型言語によるファミコンエミュレータのサンプルソースコード。  
 2019年中を目標とする。
 
 # 必要ライブラリ
-言語: Microsoft F#
+言語: Microsoft F#  
 Library: FSharp.Core 4.6.0, Microsoft.NETCore.App 3.0.0-alpha-27128-4
 
 # コーディング上の規約
