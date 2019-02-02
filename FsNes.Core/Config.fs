@@ -53,14 +53,14 @@ type StatusFlag = {
     /// ･増減命令はキャリーフラグに影響を与えません。
     /// ･SEC、CLCで直接設定またはクリアできます。
     /// </remarks>
-    C : int
+    C : bool
     /// <summary>Zero</summary>
     /// <remarks>
     /// After most instructions that have a value result, if that value is zero, this flag will be set.
     /// 
     /// このフラグは直前の計算結果(比較命令は実際には結果が保存されていない減算を行っています)がゼロになった場合にセットされます。
     /// </remarks>
-    Z : int
+    Z : bool
     /// <summary>割り込み不可</summary>
     /// <remarks>
     /// ･When set, all interrupts except the NMI are inhibited.
@@ -73,7 +73,7 @@ type StatusFlag = {
     /// ･IRQがトリガーされたときにCPUによって自動的に設定され、RTIによって前の状態に復元されます。
     /// ･このフラグがクリアされているときに/ IRQラインがロー（IRQペンディング）になっていると、直ちに割り込みがトリガされます。
     /// </remarks>
-    I : int
+    I : bool
     /// <summary>Decimal</summary>
     /// <remarks>
     /// ･On the NES, this flag has no effect.
@@ -84,12 +84,46 @@ type StatusFlag = {
     /// ･オリジナルの6502では、このフラグはいくつかの算術命令に10進法の2進数表現を使い、10進法の計算をより簡単にします。
     /// ･SED、CLDを使用して直接設定または消去できます。
     /// </remarks>
-    D : int
+    D : bool
     /// <summary>The B flag</summary>
     /// <remarks>
+    /// While there are only six flags in the processor status register within the CPU, when transferred to the stack, there are two additional bits. These do not represent a register that cna hold a value but can be used to distinguish how ther flag s were pushed.
+    /// Some 6502 references call this the "B flag", though it does not represent a n actual CPU register.
+    /// Two interrupts (/IRQ and /NMI) and two instructions (PHP and BRK) push the flags to the stack. IN the byte pushed, bit 5 is always set to 1, and bit 4 is 1 if from an instruction (PHP or BRK) or 0 if from an interrupt line being pulled low (/IRQ or /NMI). This is the only time and place where the B flag actually exists: not in the status register it self, but in bit 4 of the copy that is written to the stack.
+    /// ┏━━━━━━┳━━━━━━┳━━━━━━━━━━━━━┓
+    /// ┃Instruction ┃Bit 5 and 4 ┃Side effects after pushing┃
+    /// ┣━━━━━━╋━━━━━━╋━━━━━━━━━━━━━┫
+    /// ┃PHP         ┃11          ┃None                      ┃
+    /// ┣━━━━━━╋━━━━━━╋━━━━━━━━━━━━━┫
+    /// ┃BRK         ┃11          ┃I is set to 1             ┃
+    /// ┣━━━━━━╋━━━━━━╋━━━━━━━━━━━━━┫
+    /// ┃/IRQ        ┃10          ┃I is set to 1             ┃
+    /// ┣━━━━━━╋━━━━━━╋━━━━━━━━━━━━━┫
+    /// ┃/NMI        ┃10          ┃I is set to 1             ┃
+    /// ┗━━━━━━┻━━━━━━┻━━━━━━━━━━━━━┛
+    /// Two instructions (PLP and RIT) pull a byte from the stack and set all the flags. They ignore bits 5 and 4.
+    /// The only way for an IRQ handler to distingush /IRQ from BRK is to read the flags byte from the stack and test bit 4. The slowness of this is one reason why BRK wasn't used as a syscall mechanism. Instead, it was more often used to trigger a patching mechanism that hung off the /IRQ vector: a single byte in PROM, UVEPROM, flash, etc. would be forced to 0, and the IRQ handler would pick something to do instead based on the program counter.
+    /// Unlike bit 5 and 4, bit 3 actually exists in P, even though it doesn't affect the ALU operation on the 2A03 or 2A07 CPU the way it does in MOS Technology's own chips.
     /// 
+    /// CPU内のプロセッサステータスレジスタには6つのフラグしかありませんが、スタックに転送されると2つの追加ビットがあります。 これらは値を保持できるレジスタを表すものではありませんが、フラグがどのようにプッシュされたかを区別するために使用することができます。
+    /// 実際のCPUレジスタを表すものではありませんが、6502の参照ではこれを「Bフラグ」と呼びます。
+    /// 2つの割り込み（/IRQと/NMI）と2つの命令（PHPとBRK）がフラグをスタックにプッシュします。 プッシュされたバイトでは、ビット5は常に1に設定され、命令（PHPまたはBRK）からの場合はビット4、割り込みライン（/ IRQまたは/ NMI）がLowに設定されている場合は0になります。 これはBフラグが実際に存在する唯一の時間と場所です。ステータスレジスタ自体ではなく、スタックに書き込まれるコピーのビット4です。
+    /// ┏━━━━━━┳━━━━━━┳━━━━━━━━━━━━━┓
+    /// ┃Instruction ┃Bit 5 and 4 ┃Side effects after pushing┃
+    /// ┣━━━━━━╋━━━━━━╋━━━━━━━━━━━━━┫
+    /// ┃PHP         ┃11          ┃None                      ┃
+    /// ┣━━━━━━╋━━━━━━╋━━━━━━━━━━━━━┫
+    /// ┃BRK         ┃11          ┃I is set to 1             ┃
+    /// ┣━━━━━━╋━━━━━━╋━━━━━━━━━━━━━┫
+    /// ┃/IRQ        ┃10          ┃I is set to 1             ┃
+    /// ┣━━━━━━╋━━━━━━╋━━━━━━━━━━━━━┫
+    /// ┃/NMI        ┃10          ┃I is set to 1             ┃
+    /// ┗━━━━━━┻━━━━━━┻━━━━━━━━━━━━━┛
+    /// 2つの命令（PLPとRTI）がスタックから1バイトを取り出してすべてのフラグを設定します。 それらはビット5と4を無視します。
+    /// IRQハンドラが/ IRQとBRKを区別する唯一の方法は、スタックからフラグバイトを読み取ってビット4をテストすることです。これが遅いことが、BRKがシステムコールメカニズムとして使用されなかった理由の1つです。 代わりに、/ IRQベクトルをハングアップさせるパッチメカニズムを起動するために使用されることが多くなりました。PROM、UVEPROM、フラッシュなどの1バイトは0に強制され、IRQハンドラは代わりに何かを実行します。 プログラムカウンタ
+    /// ビット5および4とは異なり、ビット3は実際にはPに存在します。ただし、MOSテクノロジー独自のチップのように2A03または2A07 CPUのALU操作には影響しません。
     /// </remarks>
-    B : int
+    B : bool
     /// <summary>オーバーフロー</summary>
     /// <remarks>
     /// ･ADC, SBC, and CMP will set this flag if the signed result would be invalid, necessary for making signed comparisons.
@@ -100,7 +134,7 @@ type StatusFlag = {
     /// ･BITはアドレス指定された値のビット6を直接Vフラグにロードします。
     /// ･CLVで直接クリアできます。 対応する設定命令はありません。
     /// </remarks>
-    V : int
+    V : bool
     /// <summary>Nagtive</summary>
     /// <remarks>
     /// ･After most instructions that have a value result, this flag will contain bit 7 of that result.
@@ -109,7 +143,7 @@ type StatusFlag = {
     /// ･値が結果となるほとんどの命令の後、このフラグはその結果のビット7を含みます。
     /// ･BITはアドレス指定された値のビット7を直接Nフラグにロードします。
     /// </remarks>
-    N : int
+    N : bool
 }
 
 /// <summary>Registers</summary>
@@ -123,39 +157,42 @@ type Register = {
     /// A is byte-wide and along with the arithmetic logic unit (ALU), supports using the status register for carrying, overflow detection, and so on.
     /// Aはバイト幅で、算術論理装置（ALU）とともに、運搬、オーバーフロー検出などのためのステータスレジスタの使用をサポートします。
     /// </remarks>
-    A : int
+    A : byte
     /// <summary>Indexes</summary>
     /// <remarks>
     /// X and Y are byte-wide and used for several addressing modes. They can be used as loop counters easily, using INC/DEC and branch instructions. Not being the accumulator, they have limited addresing modes themselves when loading and saving.
     /// XとYはバイト幅で、いくつかのアドレッシングモードに使用されます。 これらはINC / DECと分岐命令を使用して、ループカウンタとして簡単に使用できます。 アキュムレータではないため、ロード時および保存時のアドレス指定モード自体が制限されています。
     /// </remarks>
-    X : int
+    X : byte
     /// <summary>Indexes</summary>
     /// <remarks>
     /// X and Y are byte-wide and used for several addressing modes. They can be used as loop counters easily, using INC/DEC and branch instructions. Not being the accumulator, they have limited addresing modes themselves when loading and saving.
     /// XとYはバイト幅で、いくつかのアドレッシングモードに使用されます。 これらはINC / DECと分岐命令を使用して、ループカウンタとして簡単に使用できます。 アキュムレータではないため、ロード時および保存時のアドレス指定モード自体が制限されています。
     /// </remarks>
-    Y : int
+    Y : byte
     /// <summary>Program Counter</summary>
     /// <remarks>
     /// The 2-byte program counter PC suports 65536 direct (unbanked) memory locations, however not all values are sent to the cartridge, It can be accessed either by allowing CPU's internal fetch logic increment the address bus, an interrupt(NMI, Rest, IRQ/BRQ), and unsing the RTS/JMP/JSR/Branch instructions.
     /// 2バイトプログラムカウンタPCは65536のダイレクト（非マッパー or バンク0の場合）メモリ位置をサポートしていますが、すべての値がカートリッジに送信されるわけではありません。CPUの内部フェッチロジックがアドレスバスをインクリメントさせることによってアクセスできます。 RTS / JMP / JSR / Branch 命令をアンシングします。
     /// </remarks>
-    PC : int
+    PC : int16
     /// <summary>Stack Pointer</summary>
     /// <remarks>
     /// S is byte-wide and can be accessed using interrupts, pulls, pushes, and transfers.
     /// Sはバイト幅で、割り込み、プル、プッシュ、転送を使ってアクセスできます。
     /// </remarks>
-    S : int
+    S : byte
     /// <summary>Status Register</summary>
     /// <remarks>
     /// P has 6 bits used by the ALU but is byte-wide. PHP, PLP, arithmetic, testing, and branch instructions can access this register.
     /// PにはALUで使用される6ビットがありますが、バイト幅です。 PHP、PLP、算術演算、テスト、分岐命令はこのレジスタにアクセスできます。
     /// </remarks>
-    P : StatusFlag
+    P : byte
+    //P : StatusFlag
 }
 
 type Config = {
     Register : Register
+    WRAM : byte array
 }
+
