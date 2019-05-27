@@ -14,5 +14,3 @@ module Common =
             WRAM = Array.zeroCreate 0xFFFF
         }
 
-    let readOpcode () =
-        

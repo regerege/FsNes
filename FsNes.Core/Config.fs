@@ -191,8 +191,17 @@ type Register = {
     //P : StatusFlag
 }
 
+/// NES Config
 type Config = {
+    /// CPU Cycle Skip Count
+    CpuSkip : int
+    /// PPU Cycle Skip Count
+    PpuSkip : int
+    /// Register
     Register : Register
+    /// CPU Memory
     WRAM : byte array
+    /// Video Memory
+    VRAM : byte array
 }
 
