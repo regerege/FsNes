@@ -205,3 +205,12 @@ type Config = {
     VRAM : byte array
 }
 
+type CpuAccumulator = {
+    Opcode: int
+    Size: int
+    Cycle: int
+    Oprand: int option
+    Address: int option
+    Memory: byte option
+    Result: byte option
+}

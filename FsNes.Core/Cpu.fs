@@ -2,67 +2,71 @@
 
 module Cpu =
     /// Read Oprand
-    let private readOpRand (c:Config) (size:int) =
+    let private readOpRand (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
         let pc = (int)c.Register.PC + 1
         let f (index:int) = (int)c.WRAM.[pc + index] <<< (8 * index)
-        match size with
-        | 2 | 3 ->
-            seq [2..size]
-            |> Seq.map ((-)2 >> f)
-            |> Seq.reduce(|||)
-            |> Some
-        | _ -> None
+        let oprand =
+            match acm.Size with
+            | 2 | 3 ->
+                seq [2..acm.Size]
+                |> Seq.map ((-)2 >> f)
+                |> Seq.reduce(|||)
+                |> Some
+            | _ -> None
+        { acm with Oprand = oprand; Address = oprand }
 
-    let private nopA (c:Config) (oprand:int option) =
-        None
+    /// Addressing Mode : NOP
+    let private nopAM (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        acm
     /// Addressing Mode : Zero Page, X
-    let private zpx (c:Config) (oprand:int option) =
-        let address = oprand.Value + (int)c.Register.X
-        Some c.WRAM.[address]
+    let private zpx (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let address = (int)((byte)acm.Oprand.Value + c.Register.X)
+        { acm with Address = Some address; Memory = Some(c.WRAM.[address]) }
     /// Addressing Mode : Zero Page, Y
-    let private zpy (c:Config) (oprand:int option) =
-        let address = oprand.Value + (int)c.Register.Y
-        Some c.WRAM.[address]
+    let private zpy (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let address = (int)((byte)acm.Oprand.Value + c.Register.Y)
+        { acm with Address = Some address; Memory = Some(c.WRAM.[address]) }
     /// Addressing Mode : Absolute, X
-    let private aix (c:Config) (oprand:int option) =
-        let address = oprand.Value + (int)c.Register.X
-        Some c.WRAM.[address]
+    let private aix (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let address = acm.Oprand.Value + (int)c.Register.X
+        { acm with Address = Some address; Memory = Some(c.WRAM.[address]) }
     /// Addressing Mode : Absolute, Y
-    let private aiy (c:Config) (oprand:int option) =
-        let address = oprand.Value + (int)c.Register.Y
-        Some c.WRAM.[address]
+    let private aiy (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let address = acm.Oprand.Value + (int)c.Register.Y
+        { acm with Address = Some address; Memory = Some(c.WRAM.[address]) }
     /// Addressing Mode : (Indirect, X)
-    let private iix (c:Config) (oprand:int option) =
-        let address = oprand.Value + (int)c.Register.X
+    let private iix (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let address = (int)((byte)acm.Oprand.Value + c.Register.X)
         let address2 = (int)c.WRAM.[address]
-        Some c.WRAM.[address2]
+        { acm with Address = Some address2; Memory = Some(c.WRAM.[address2]) }
     /// Addressing Mode : (Indirect), Y
-    let private iiy (c:Config) (oprand:int option) =
-        let address = c.WRAM.[oprand.Value]
+    let private iiy (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let address = c.WRAM.[acm.Oprand.Value]
         let address2 = (int)(address + c.Register.Y)
-        Some c.WRAM.[address2]
+        { acm with Address = Some address2; Memory = Some(c.WRAM.[address2]) }
     /// Addressing Mode : Implied
-    let private imp (c:Config) =
-        None
+    let private imp (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        acm
     /// Addressing Mode : Accumlator
-    let private acm (c:Config) =
-        None
+    let private acm (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        acm
     /// Addressing Mode : Immediate
-    let private imm (c:Config) (oprand:byte) =
-        Some oprand
+    let private imm (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        { acm with Memory = Some <| (byte)acm.Oprand.Value }
     /// Addressing Mode : Zero Page
-    let private zp_ (c:Config) (oprand:byte) =
-        Some c.WRAM.[(int)oprand]
+    let private zp_ (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        { acm with Memory = Some <| c.WRAM.[acm.Oprand.Value] }
     /// Addressing Mode : Absolute
-    let private abs (c:Config) (oprand:int) =
-        Some c.WRAM.[(int)oprand]
+    let private abs (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        { acm with Memory = Some <| c.WRAM.[acm.Oprand.Value] }
     /// Addressing Mode : Relative
-    let private rel (c:Config) (oprand:int) =
-        Some oprand
+    let private rel (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        { acm with Memory = Some <| c.WRAM.[acm.Oprand.Value] }
     /// Addressing Mode : Indirect
-    let private ind (c:Config) (oprand:byte) =
-        let address = (int)c.WRAM.[(int)oprand]
-        Some c.WRAM.[address]
+    let private ind (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let address = (int)c.WRAM.[acm.Oprand.Value]
+        let value = c.WRAM.[address]
+        { acm with Address = Some address; Result = Some value }
 
     let private Cycles =
         [
@@ -226,34 +230,39 @@ module Cpu =
     //    let address = (int)(oprand + c.Register.Y) % 0x100
     //    // 処理
     //    c.WRAM.[address] <- c.Register.X
-    //let private asl (c:Config) =
-    //    // Accumlator
-    //    // ▽ フェッチ ▽  メモリの読み込みのみ
-    //    let opcode = c.WRAM.[(int)c.Register.PC]
-    //    let size = Bytes.[(int)opcode]  // 1 Byte (opcode A) 
-    //    // アドレッシングモードの処理
 
-    //    // 処理
-    //    let ret = c.Register.A <<< 1
-    //    { c with Register = { c.Register with A = ret } }
-
-    let private storeNop (c:Config) (result:byte option) =
+    let private storeNop (c:Config) (address:int option, result:byte option) =
         c
-    let private storeA (c:Config) (result:byte option) =
+    let private storeA (c:Config) (address:int option, result:byte option) =
         { c with Register = { c.Register with A = result.Value } }
+    let private storeMem (c:Config) (acm:CpuAccumulator) : Config =
+        c.WRAM.[acm.Address.Value] <- acm.Result.Value
+        c
 
-    let private asl (c:Config) (oprand:int option) =
-        Some (c.Register.A <<< 1)
+    let private stx (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        { acm with Result = Some c.Register.X }
+
+    let private asl (c:Config) (address:int option, oprand:byte option) =
+        let ret = c.Register.A <<< 1
+        address,Some ret
 
     /// CPU の処理を1ステップ実行する。
     /// One Step Processing.
     let step (c:Config) =
         let opcode = (int)c.WRAM.[(int)c.Register.PC]
-        //let oprand = readOpRand c <| Bytes.[opcode]
+        let acm : CpuAccumulator = {
+                Opcode = opcode
+                Size = Bytes.[opcode]
+                Cycle = Cycles.[opcode]
+                Oprand = None
+                Address = None
+                Memory = None
+                Result = None
+            }
 
-        Bytes.[opcode]
+        acm
         |> readOpRand c     // Read Oprand
-        |> nopA c           // Addressing Mode
-        |> asl c            // Calc opcode
-        |> storeA c         // Store
+        |> ind c            // Addressing Mode
+        |> stx c            // Calc opcode
+        |> storeMem c       // Store
 
