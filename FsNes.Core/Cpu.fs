@@ -197,48 +197,24 @@ module Cpu =
     //    // ADCの処理
     //    let ret = c.Register.A + memory + (c.Register.S &&& 1uy)
     //    { c with Register = { c.Register with A = ret } }
-    //let private adc8 (c:Config) =
-    //    // Absolute, X
-    //    // ▽ フェッチ ▽  メモリの読み込みのみ
-    //    let opcode = c.WRAM.[(int)c.Register.PC]
-    //    let size = Bytes.[(int)opcode]  // 3 Byte (opcode $4400,X)
-    //    let oprand1 = c.WRAM.[(int)c.Register.PC + 1]
-    //    let oprand2 = c.WRAM.[(int)c.Register.PC + 2]
-    //    let oprand = ((int)oprand2 <<< 8) ||| (int)oprand1
-    //    // アドレッシングモードの処理
-    //    let address = oprand + (int)c.Register.X
-    //    let memory = c.WRAM.[address]
-    //    // ADCの処理
-    //    let ret = c.Register.A + memory + (c.Register.S &&& 1uy)
-    //    { c with Register = { c.Register with A = ret } }
-    //let private clc (c:Config) =
-    //    // Implied
-    //    // ▽ フェッチ ▽  メモリの読み込みのみ
-    //    let opcode = c.WRAM.[(int)c.Register.PC]
-    //    // アドレッシングモードの処理
 
-    //    // ADCの処理
-    //    let p = c.Register.P &&& 0b11111110uy
-    //    { c with Register = { c.Register with P = p } }
-    //let private stx (c:Config) =
-    //    // Zero Page, Y
-    //    // ▽ フェッチ ▽  メモリの読み込みのみ
-    //    let opcode = c.WRAM.[(int)c.Register.PC]
-    //    let size = Bytes.[(int)opcode]  // 2 Byte (opcode $44,X)
-    //    let oprand = c.WRAM.[(int)c.Register.PC + 1]
-    //    // アドレッシングモードの処理
-    //    let address = (int)(oprand + c.Register.Y) % 0x100
-    //    // 処理
-    //    c.WRAM.[address] <- c.Register.X
 
-    let private storeNop (c:Config) (address:int option, result:byte option) =
+    let private storeNop (c:Config) (acm:CpuAccumulator) : Config =
         c
-    let private storeA (c:Config) (address:int option, result:byte option) =
-        { c with Register = { c.Register with A = result.Value } }
+    let private storeA (c:Config) (acm:CpuAccumulator) : Config =
+        { c with Register = { c.Register with A = acm.Result.Value } }
+    let private storeP (c:Config) (acm:CpuAccumulator) : Config =
+        { c with Register = { c.Register with P = acm.Result.Value } }
     let private storeMem (c:Config) (acm:CpuAccumulator) : Config =
         c.WRAM.[acm.Address.Value] <- acm.Result.Value
         c
 
+    let private adc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let ret = c.Register.A + acm.Memory.Value + (c.Register.S &&& 1uy)
+        { acm with Result = Some ret }
+    let private clc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let p = c.Register.P &&& 0b11111110uy
+        { acm with Result = Some p }
     let private stx (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
         { acm with Result = Some c.Register.X }
 
@@ -263,6 +239,6 @@ module Cpu =
         acm
         |> readOpRand c     // Read Oprand
         |> ind c            // Addressing Mode
-        |> stx c            // Calc opcode
-        |> storeMem c       // Store
+        |> clc c            // Calc opcode
+        |> storeP c         // Store
 
