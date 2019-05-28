@@ -213,4 +213,5 @@ type CpuAccumulator = {
     Address: int option
     Memory: byte option
     Result: byte option
+    UpdateNZ: bool
 }
