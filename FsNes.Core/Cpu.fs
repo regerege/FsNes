@@ -208,6 +208,10 @@ module Cpu =
     let private storeMem (c:Config) (acm:CpuAccumulator) : Config =
         c.WRAM.[acm.Address.Value] <- acm.Result.Value
         c
+    let private updateFlags (c:Config) : Config =
+        c
+    let private nonUpdateFlags (c:Config) : Config =
+        c
 
     let private adc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
         let ret = c.Register.A + acm.Memory.Value + (c.Register.S &&& 1uy)
