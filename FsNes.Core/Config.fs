@@ -191,6 +191,14 @@ type Register = {
     //P : StatusFlag
 }
 
+/// 割り込み処理
+type Interrupt =
+    | Empty
+    | Reset
+    | NMI
+    | IRQ
+    | BRK
+
 /// NES Config
 type Config = {
     /// CPU Cycle Skip Count
@@ -203,8 +211,11 @@ type Config = {
     WRAM : byte array
     /// Video Memory
     VRAM : byte array
+    /// Hardware and Software Interrupt
+    Interrupt: Interrupt
 }
 
+/// CPU処理の計算途中結果を保持する構造体
 type CpuAccumulator = {
     Opcode: int
     Size: int
@@ -212,6 +223,14 @@ type CpuAccumulator = {
     Oprand: int option
     Address: int option
     Memory: byte option
-    Result: byte option
+    ResultMemory: byte option
+    ResultA: byte option
+    ResultX: byte option
+    ResultY: byte option
+    ResultPC: int16 option
+    ResultS: byte option
+    ResultP: byte option
+    UpdateC: bool option
+    UpdateV: bool option
     UpdateNZ: bool
 }
