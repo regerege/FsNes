@@ -46,15 +46,34 @@ module Cpu =
         let c = v &&& 1uy
         { acm with ResultA = Some ret; UpdateC = Some c }
 
-    /// Branch : C = 0
-    let private _bcc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
-        if c.Register.P &&& 1uy = 0uy then
+    /// Branch Main Function
+    let private branch (mask:byte, comp:byte) (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        if (c.Register.P &&& mask) = comp then
             let a = c.Register.PC + 1s
             let b = a + (int16)acm.Memory.Value
-            let cycle = acm.Cycle + 1 + (int)((a ^^^ b) >>> 8 &&& 1s)
+            let cycle = acm.Cycle + 1 + (int)((a ^^^ b) >>> 8)
             { acm with ResultPC = Some b; Cycle = cycle }
         else
             acm
+
+    /// Branch : C = 0
+    let private _bcc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        branch (1uy, 0uy) c acm
+
+    /// Branch : C = 1
+    let private _bcs (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        branch (1uy, 1uy) c acm
+
+    /// Branch : Z = 1
+    let private _beq (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        branch (1uy, 0uy) c acm
+
+    let private _bit (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let value = c.Register.A &&& acm.Memory.Value
+        let n = (value >>> 7) &&& 1uy
+        let v = (value >>> 6) &&& 1uy
+        let z = if value = 0uy then 1uy else 0uy
+        { acm with UpdateN = Some n; UpdateV = Some v; UpdateZ = Some z; }
 
     /// CPU Cycle Count
     let private Cycles =
@@ -106,7 +125,7 @@ module Cpu =
             //0      1      2      3      4      5      6      7      8      9      A      B      C      D      E      F
             false;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x0*
             false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x1*
-            false;  true; false;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true; // 0x2*
+            false;  true; false;  true; false;  true;  true;  true;  true;  true;  true;  true; false;  true;  true;  true; // 0x2*
             false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x3*
              true;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x4*
             false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x5*
@@ -204,29 +223,6 @@ module Cpu =
         { acm with Address = Some addr; }
 
 
-    /// ステータスフラグ N Z の更新を行う。
-    let private updateNZ (acm:CpuAccumulator) (c:Config)  : Config =
-        if acm.UpdateNZ then
-            match acm.ResultMemory, acm.ResultA with
-            | Some value, None
-            | None, Some value ->
-                let n = value &&& (1uy <<< 7)       // 負の数なら7bit目を 1
-                let z = (if value = 0uy then 1uy else 0uy) <<< 1        // 値が 0 なら2bit目を 1
-                let p = c.Register.P ||| n ||| z
-                { c with Register = { c.Register with P = p } }
-            | _ -> c
-        else c
-    let private updateCV (acm:CpuAccumulator) (c:Config) : Config =
-        let p = c.Register.P
-        let p1 =
-            match acm.UpdateC with
-            | Some c -> p &&& 0b11111110uy ||| c
-            | None -> p
-        let p2 =
-            match acm.UpdateV with
-            | Some v -> p1 &&& 0b10111111uy ||| v
-            | None -> p1
-        { c with Register = { c.Register with P = p2 } }
     /// アキュムレータの結果を config に反映させる。
     let private storeResult (acm:CpuAccumulator) (c:Config) : Config =
         let result =
@@ -246,10 +242,35 @@ module Cpu =
         | _,_,_,_,_,Some x,_ -> { c with Register = { c.Register with S = x } }
         | _,_,_,_,_,_,Some x -> { c with Register = { c.Register with P = x } }
         | _ -> c
+    /// ステータスフラグ N Z の更新を行う。
+    let private updateNZ (acm:CpuAccumulator) (c:Config)  : Config =
+        if acm.UpdateNZ then
+            match acm.ResultMemory, acm.ResultA with
+            | Some value, None
+            | None, Some value ->
+                let n = value &&& (1uy <<< 7)       // 負の数なら7bit目を 1
+                let z = (if value = 0uy then 1uy else 0uy) <<< 1        // 値が 0 なら2bit目を 1
+                let p = c.Register.P ||| n ||| z
+                { c with Register = { c.Register with P = p } }
+            | _ -> c
+        else c
+    let private updateCVNZ (acm:CpuAccumulator) (c:Config) : Config =
+        let p = c.Register.P
+        let mask,value =
+            seq[
+                7, acm.UpdateN
+                6, acm.UpdateV
+                1, acm.UpdateZ
+                0, acm.UpdateC
+            ]
+            |> Seq.filter (fun (a,b) -> b.IsSome)
+            |> Seq.fold (fun (m,v) (a,b) -> (m ||| (1uy <<< a)),(v ||| b.Value)) (0uy, 0uy)
+        let p = c.Register.P &&& mask ||| value
+        { c with Register = { c.Register with P = p } }
     /// アキュムレータの結果を元に Config に反映させ、NZフラグの更新チェックを行う。
     let private update (c:Config) (acm:CpuAccumulator) : Config =
         storeResult acm c
-        |> updateCV acm
+        |> updateCVNZ acm
         |> updateNZ acm
 
     /// Create CPU Accumulator
@@ -268,8 +289,10 @@ module Cpu =
             ResultPC = None
             ResultS = None
             ResultP = None
-            UpdateC = None
+            UpdateN = None
             UpdateV = None
+            UpdateZ = None
+            UpdateC = None
             UpdateNZ = UpdateNZ.[opcode]
         }
 
