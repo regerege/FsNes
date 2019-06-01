@@ -4,8 +4,8 @@ module Cpu =
     let private _adc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
         let a = c.Register.A
         let ret = c.Register.A + acm.Memory.Value + (c.Register.S &&& 1uy)
-        let v = ((a ^^^ ret) >>> 7) = 1uy       // 計算前と計算後で最上位ビットが変化されていればオーバーフローとして扱う (0x7F以下から0x80以上に変化していた場合)
-        let c = a > ret                         // 計算前より計算後の値が低い場合はオーバーフローとして扱う (0xFF + 0xFF = 0x1FE && 0xFF -> 0xFE, 前0xFF,後0xFE)
+        let v = ((a ^^^ ret) >>> 6)             // 計算前と計算後で最上位ビットが変化されていればオーバーフローとして扱う (0x7F以下から0x80以上に変化していた場合)
+        let c = if a > ret then 1uy else 0uy    // 計算前より計算後の値が低い場合はオーバーフローとして扱う (0xFF + 0xFF = 0x1FE && 0xFF -> 0xFE, 前0xFF,後0xFE)
         { acm with ResultMemory = Some ret; UpdateC = Some c; UpdateV = Some v }
 
     /// Other Illegal Opcode.
@@ -26,30 +26,35 @@ module Cpu =
     /// Unoffical Opcode.
     let private _arr (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
         let ret = ((c.Register.A &&& acm.Memory.Value) >>> 1) ||| ((c.Register.P &&& 1uy) <<< 7)
-        let c = (c.Register.A &&& acm.Memory.Value) &&& 1uy = 1uy
+        let c = (c.Register.A &&& acm.Memory.Value) &&& 1uy
         { acm with ResultA = Some ret; UpdateC = Some c }
         
     let private _asl (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let f v =
+            let ret = v <<< 1
+            let c = (v >>> 7) &&& 1uy
+            { acm with ResultA = Some ret; UpdateC = Some c }
         match acm.Memory with
-        | Some v ->
-            let ret = v <<< 1
-            let c = (v >>> 7) &&& 1uy = 1uy
-            { acm with ResultMemory = Some ret }
-        | None -> // Accumulator
-            let v = c.Register.A
-            let ret = v <<< 1
-            let c = (v >>> 7) &&& 1uy = 1uy
-            { acm with ResultA = Some ret }
+        | Some v -> v
+        | None -> c.Register.A
+        |> f
 
-    //let private clc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
-    //    let p = c.Register.P &&& 0b11111110uy
-    //    { acm with Result = Some p }
-    //let private stx (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
-    //    { acm with Result = Some c.Register.X }
+    /// Other Illegal Opcode.
+    let private _asr (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        let v = c.Register.A &&& acm.Memory.Value
+        let ret = v >>> 1
+        let c = v &&& 1uy
+        { acm with ResultA = Some ret; UpdateC = Some c }
 
-    //let private asl (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
-    //    let ret = c.Register.A <<< 1
-    //    { acm with Result = Some ret }
+    /// Branch : C = 0
+    let private _bcc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+        if c.Register.P &&& 1uy = 0uy then
+            let a = c.Register.PC + 1s
+            let b = a + (int16)acm.Memory.Value
+            let cycle = acm.Cycle + 1 + (int)((a ^^^ b) >>> 8 &&& 1s)
+            { acm with ResultPC = Some b; Cycle = cycle }
+        else
+            acm
 
     /// CPU Cycle Count
     let private Cycles =
@@ -215,13 +220,11 @@ module Cpu =
         let p = c.Register.P
         let p1 =
             match acm.UpdateC with
-            | Some true -> p ||| 0b00000001uy
-            | Some false -> p &&& 0b11111110uy
+            | Some c -> p &&& 0b11111110uy ||| c
             | None -> p
         let p2 =
-            match acm.UpdateC with
-            | Some true -> p1 ||| 0b01000000uy
-            | Some false -> p1 &&& 0b10111111uy
+            match acm.UpdateV with
+            | Some v -> p1 &&& 0b10111111uy ||| v
             | None -> p1
         { c with Register = { c.Register with P = p2 } }
     /// アキュムレータの結果を config に反映させる。

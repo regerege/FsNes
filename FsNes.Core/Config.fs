@@ -230,7 +230,7 @@ type CpuAccumulator = {
     ResultPC: int16 option
     ResultS: byte option
     ResultP: byte option
-    UpdateC: bool option
-    UpdateV: bool option
+    UpdateC: byte option
+    UpdateV: byte option
     UpdateNZ: bool
 }
