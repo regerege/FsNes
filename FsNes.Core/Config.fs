@@ -218,21 +218,37 @@ type Config = {
 /// CPU処理の計算途中結果を保持する構造体
 type CpuAccumulator = {
     Opcode: int
+    Oprand: int option
     Size: int
     Cycle: int
-    Oprand: int option
     Address: int option
     Memory: byte option
+    /// Calculation result. Store in memory.
     ResultMemory: byte option
+    /// Calculation result. Store in Accumulator.
     ResultA: byte option
+    /// Calculation result. Store in Index X. 
     ResultX: byte option
+    /// Calculation result. Store in Index Y. 
     ResultY: byte option
+    /// Calculation result. Store in Program Counter. 
     ResultPC: int16 option
+    /// Calculation result. Store in Stack Pointer Address.
     ResultS: byte option
+    /// Calculation result. Store in Status.
     ResultP: byte option
-    UpdateN: byte option
-    UpdateV: byte option
-    UpdateZ: byte option
+    /// Update flag after Calculation. : C [0]
     UpdateC: byte option
+    /// Update flag after Calculation. : Z [1]
+    UpdateZ: byte option
+    /// Update flag after Calculation. : I [2]
+    UpdateI: byte option
+    /// Update flag after Calculation. : D [3]
+    UpdateD: byte option
+    /// Update flag after Calculation. : V [6]
+    UpdateV: byte option
+    /// Update flag after Calculation. : N [7]
+    UpdateN: byte option
+    /// Update status flags "N" and "Z" based on the result of Memory or Accumulator.
     UpdateNZ: bool
 }

@@ -59,6 +59,14 @@ module Cpu =
         else
             acm
 
+    /// Test Instruction
+    let private _bit c acm =
+        let value = c.Register.A &&& acm.Memory.Value
+        let n = (value >>> 7) &&& 1uy
+        let v = (value >>> 6) &&& 1uy
+        let z = if value = 0uy then 1uy else 0uy
+        { acm with UpdateN = Some n; UpdateV = Some v; UpdateZ = Some z; }
+
     /// Branch : C = 0
     let private _bcc = branch (0, 0uy)
     /// Branch : C = 1
@@ -76,13 +84,21 @@ module Cpu =
     /// Branch : N = 1
     let private _bmi = branch (7, 1uy)
 
-    /// Test Instruction
-    let private _bit c acm =
-        let value = c.Register.A &&& acm.Memory.Value
-        let n = (value >>> 7) &&& 1uy
-        let v = (value >>> 6) &&& 1uy
-        let z = if value = 0uy then 1uy else 0uy
-        { acm with UpdateN = Some n; UpdateV = Some v; UpdateZ = Some z; }
+    /// Clear Flag : C <- 0
+    let private _clc c acm = { acm with UpdateC = Some 0uy }
+    /// Clear Flag : I <- 0
+    let private _cli c acm = { acm with UpdateI = Some 0uy }
+    /// Clear Flag : V <- 0
+    let private _clv c acm = { acm with UpdateV = Some 0uy }
+    /// Clear Flag : D <- 0
+    let private _cld c acm = { acm with UpdateD = Some 0uy }
+        
+    /// Set Flag : C <- 1
+    let private _stc c acm = { acm with UpdateC = Some 1uy }
+    /// Set Flag : I <- 1
+    let private _sti c acm = { acm with UpdateI = Some 1uy }
+    /// Set Flag : D <- 1
+    let private _std c acm = { acm with UpdateD = Some 1uy }
 
     /// CPU Cycle Count
     let private Cycles =
@@ -232,7 +248,8 @@ module Cpu =
         { acm with Address = Some addr; }
 
 
-    /// アキュムレータの結果を config に反映させる。
+    /// Reflect the calculation results to 'Config'.
+    /// 計算結果を config に反映させる。
     let private storeResult acm c =
         let result =
             acm.ResultMemory,
@@ -251,7 +268,7 @@ module Cpu =
         | _,_,_,_,_,Some x,_ -> { c with Register = { c.Register with S = x } }
         | _,_,_,_,_,_,Some x -> { c with Register = { c.Register with P = x } }
         | _ -> c
-    /// ステータスフラグ N Z の更新を行う。
+    /// 計算結果をもとにステータスフラグ N Z の更新を行う。
     let private updateNZ acm c =
         if acm.UpdateNZ then
             match acm.ResultMemory, acm.ResultA with
@@ -267,10 +284,12 @@ module Cpu =
     let private updateP acm c =
         let mask,value =
             seq[
-                7, acm.UpdateN
-                6, acm.UpdateV
-                1, acm.UpdateZ
                 0, acm.UpdateC
+                1, acm.UpdateZ
+                2, acm.UpdateI
+                3, acm.UpdateD
+                6, acm.UpdateV
+                7, acm.UpdateN
             ]
             |> Seq.filter (snd >> Option.isSome)
             |> Seq.fold (fun (m,v) (a,b) -> (m ||| (1uy <<< a)),(v ||| b.Value)) (0uy, 0uy)
@@ -300,6 +319,8 @@ module Cpu =
             ResultP = None
             UpdateN = None
             UpdateV = None
+            UpdateI = None
+            UpdateD = None
             UpdateZ = None
             UpdateC = None
             UpdateNZ = UpdateNZ.[opcode]
@@ -330,3 +351,5 @@ module Cpu =
                 { c with Interrupt = Interrupt.BRK }
             else
                 step opcode c
+
+
