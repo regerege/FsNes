@@ -1,7 +1,8 @@
 ﻿namespace FsNes.Core
 
 module Cpu =
-    let private _adc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    /// Plus Instruction.
+    let private _adc c acm =
         let a = c.Register.A
         let ret = c.Register.A + acm.Memory.Value + (c.Register.S &&& 1uy)
         let v = ((a ^^^ ret) >>> 6)             // 計算前と計算後で最上位ビットが変化されていればオーバーフローとして扱う (0x7F以下から0x80以上に変化していた場合)
@@ -9,30 +10,32 @@ module Cpu =
         { acm with ResultMemory = Some ret; UpdateC = Some c; UpdateV = Some v }
 
     /// Other Illegal Opcode.
-    let private _anc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private _anc c acm =
         let ret = c.Register.A &&& acm.Memory.Value
         // ステータスフラグの更新必要？
         { acm with ResultA = Some ret }
 
-    let private _and (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    /// Logical Conjunction.
+    let private _and c acm =
         let ret = c.Register.A &&& acm.Memory.Value
         { acm with ResultA = Some ret }
 
     /// Unoffical Opcode.
-    let private _ane (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private _ane c acm =
         let ret = (c.Register.A ||| 0xEEuy) &&& c.Register.X &&& acm.Memory.Value
         { acm with ResultA = Some ret }
 
     /// Unoffical Opcode.
-    let private _arr (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private _arr c acm =
         let ret = ((c.Register.A &&& acm.Memory.Value) >>> 1) ||| ((c.Register.P &&& 1uy) <<< 7)
         let c = (c.Register.A &&& acm.Memory.Value) &&& 1uy
         { acm with ResultA = Some ret; UpdateC = Some c }
         
-    let private _asl (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    /// Left Rotate
+    let private _asl c acm =
         let f v =
             let ret = v <<< 1
-            let c = (v >>> 7) &&& 1uy
+            let c = v >>> 7
             { acm with ResultA = Some ret; UpdateC = Some c }
         match acm.Memory with
         | Some v -> v
@@ -40,15 +43,15 @@ module Cpu =
         |> f
 
     /// Other Illegal Opcode.
-    let private _asr (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private _asr c acm =
         let v = c.Register.A &&& acm.Memory.Value
         let ret = v >>> 1
         let c = v &&& 1uy
         { acm with ResultA = Some ret; UpdateC = Some c }
 
     /// Branch Main Function
-    let private branch (mask:byte, comp:byte) (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
-        if (c.Register.P &&& mask) = comp then
+    let private branch (digits, comp) c acm =
+        if (c.Register.P >>> digits &&& 1uy) = comp then
             let a = c.Register.PC + 1s
             let b = a + (int16)acm.Memory.Value
             let cycle = acm.Cycle + 1 + (int)((a ^^^ b) >>> 8)
@@ -57,18 +60,24 @@ module Cpu =
             acm
 
     /// Branch : C = 0
-    let private _bcc (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
-        branch (1uy, 0uy) c acm
-
+    let private _bcc = branch (0, 0uy)
     /// Branch : C = 1
-    let private _bcs (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
-        branch (1uy, 1uy) c acm
-
+    let private _bcs = branch (0, 1uy)
+    /// Branch : Z = 0
+    let private _bne = branch (1, 0uy)
     /// Branch : Z = 1
-    let private _beq (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
-        branch (1uy, 0uy) c acm
+    let private _beq = branch (1, 1uy)
+    /// Branch : V = 0
+    let private _bvc = branch (6, 0uy)
+    /// Branch : V = 1
+    let private _bvs = branch (6, 1uy)
+    /// Branch : N = 0
+    let private _bpl = branch (7, 0uy)
+    /// Branch : N = 1
+    let private _bmi = branch (7, 1uy)
 
-    let private _bit (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    /// Test Instruction
+    let private _bit c acm =
         let value = c.Register.A &&& acm.Memory.Value
         let n = (value >>> 7) &&& 1uy
         let v = (value >>> 6) &&& 1uy
@@ -142,7 +151,7 @@ module Cpu =
         ]
 
     /// Read Oprand
-    let private readOpRand (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private readOpRand c acm =
         let pc = (int)c.Register.PC + 1
         let f (index:int) = (int)c.WRAM.[pc + index] <<< (8 * index)
         let oprand =
@@ -161,70 +170,70 @@ module Cpu =
         cycle + a
 
     /// Addressing Mode : NOP
-    let private nopAM (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private nopAM c acm =
         acm
     /// Addressing Mode : Zero Page, X
-    let private zpx (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private zpx c acm =
         let address = (int)((byte)acm.Oprand.Value + c.Register.X)
         { acm with Address = Some address; Memory = Some(c.WRAM.[address]) }
     /// Addressing Mode : Zero Page, Y
-    let private zpy (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private zpy c acm =
         let address = (int)((byte)acm.Oprand.Value + c.Register.Y)
         { acm with Address = Some address; Memory = Some(c.WRAM.[address]) }
     /// Addressing Mode : Absolute, X
-    let private aix (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private aix c acm =
         let address = acm.Oprand.Value + (int)c.Register.X
         let cycle = calcCycle acm.Cycle acm.Oprand.Value ((int)c.Register.X)
         { acm with Address = Some address; Memory = Some(c.WRAM.[address]); Cycle = cycle }
     /// Addressing Mode : Absolute, Y
-    let private aiy (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private aiy c acm =
         let address = acm.Oprand.Value + (int)c.Register.Y
         let cycle = calcCycle acm.Cycle acm.Oprand.Value ((int)c.Register.Y)
         { acm with Address = Some address; Memory = Some(c.WRAM.[address]); Cycle = cycle }
     /// Addressing Mode : (Indirect, X)
-    let private iix (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private iix c acm =
         let address = (int)((byte)acm.Oprand.Value + c.Register.X)
         let address2 = (int)c.WRAM.[address]
         { acm with Address = Some address2; Memory = Some(c.WRAM.[address2]) }
     /// Addressing Mode : (Indirect), Y
-    let private iiy (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private iiy c acm =
         let address = (int)c.WRAM.[acm.Oprand.Value]
         let address2 = address + (int)c.Register.Y
         let cycle = calcCycle acm.Cycle address ((int)c.Register.Y)
         { acm with Address = Some address2; Memory = Some(c.WRAM.[address2]); Cycle = cycle }
     /// Addressing Mode : Implied
-    let private imp (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private imp c acm =
         acm
     /// Addressing Mode : Accumlator
-    let private acm (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private acm c acm =
         acm
     /// Addressing Mode : Immediate
-    let private imm (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private imm c acm =
         { acm with Memory = Some <| (byte)acm.Oprand.Value }
     /// Addressing Mode : Zero Page
-    let private zp_ (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private zp_ c acm =
         let addr = acm.Oprand.Value
         let mem = c.WRAM.[addr]
         { acm with Address = Some addr; Memory = Some mem }
     /// Addressing Mode : Absolute
-    let private abs (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private abs c acm =
         let addr = acm.Oprand.Value
         let mem = c.WRAM.[addr]
         { acm with Address = Some addr; Memory = Some mem }
     /// Addressing Mode : Relative
     /// * The cycle calculation when crossing page boundaries is performed by "Instruction".
-    let private rel (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private rel c acm =
         let addr = acm.Oprand.Value
         let mem = c.WRAM.[addr]
         { acm with Address = Some addr; Memory = Some mem }
     /// Addressing Mode : Indirect   (JMP ($5597))
-    let private ind (c:Config) (acm:CpuAccumulator) : CpuAccumulator =
+    let private ind c acm =
         let addr = (int)c.WRAM.[acm.Oprand.Value]
         { acm with Address = Some addr; }
 
 
     /// アキュムレータの結果を config に反映させる。
-    let private storeResult (acm:CpuAccumulator) (c:Config) : Config =
+    let private storeResult acm c =
         let result =
             acm.ResultMemory,
             acm.ResultA,
@@ -243,7 +252,7 @@ module Cpu =
         | _,_,_,_,_,_,Some x -> { c with Register = { c.Register with P = x } }
         | _ -> c
     /// ステータスフラグ N Z の更新を行う。
-    let private updateNZ (acm:CpuAccumulator) (c:Config)  : Config =
+    let private updateNZ acm c =
         if acm.UpdateNZ then
             match acm.ResultMemory, acm.ResultA with
             | Some value, None
@@ -254,8 +263,8 @@ module Cpu =
                 { c with Register = { c.Register with P = p } }
             | _ -> c
         else c
-    let private updateCVNZ (acm:CpuAccumulator) (c:Config) : Config =
-        let p = c.Register.P
+    /// ステータスフラグの更新
+    let private updateP acm c =
         let mask,value =
             seq[
                 7, acm.UpdateN
@@ -263,18 +272,18 @@ module Cpu =
                 1, acm.UpdateZ
                 0, acm.UpdateC
             ]
-            |> Seq.filter (fun (a,b) -> b.IsSome)
+            |> Seq.filter (snd >> Option.isSome)
             |> Seq.fold (fun (m,v) (a,b) -> (m ||| (1uy <<< a)),(v ||| b.Value)) (0uy, 0uy)
-        let p = c.Register.P &&& mask ||| value
+        let p = c.Register.P &&& (mask ^^^ 0xFFuy) ||| value
         { c with Register = { c.Register with P = p } }
-    /// アキュムレータの結果を元に Config に反映させ、NZフラグの更新チェックを行う。
-    let private update (c:Config) (acm:CpuAccumulator) : Config =
+    /// CPUアキュムレータの結果を Config に反映させる。
+    let private update c acm =
         storeResult acm c
-        |> updateCVNZ acm
+        |> updateP acm
         |> updateNZ acm
 
     /// Create CPU Accumulator
-    let createAccumulator (opcode:int) : CpuAccumulator =
+    let createAccumulator opcode : CpuAccumulator =
         {
             Opcode = opcode
             Size = Bytes.[opcode]
