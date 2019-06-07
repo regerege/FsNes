@@ -221,8 +221,10 @@ type CpuAccumulator = {
     Oprand: int option
     Size: int
     Cycle: int
+    /// Source address
     Address: int option
-    Memory: byte option
+    /// Memory or Accumulator
+    Value: byte option
     /// Calculation result. Store in memory.
     ResultMemory: byte option
     /// Calculation result. Store in Accumulator.
@@ -237,18 +239,19 @@ type CpuAccumulator = {
     ResultS: byte option
     /// Calculation result. Store in Status.
     ResultP: byte option
-    /// Update flag after Calculation. : C [0]
-    UpdateC: byte option
-    /// Update flag after Calculation. : Z [1]
-    UpdateZ: byte option
-    /// Update flag after Calculation. : I [2]
-    UpdateI: byte option
-    /// Update flag after Calculation. : D [3]
-    UpdateD: byte option
-    /// Update flag after Calculation. : V [6]
-    UpdateV: byte option
-    /// Update flag after Calculation. : N [7]
-    UpdateN: byte option
+    ///// Update flag after Calculation. : C [0]
+    //UpdateC: byte option
+    ///// Update flag after Calculation. : Z [1]
+    //UpdateZ: byte option
+    ///// Update flag after Calculation. : I [2]
+    //UpdateI: byte option
+    ///// Update flag after Calculation. : D [3]
+    //UpdateD: byte option
+    ///// Update flag after Calculation. : V [6]
+    //UpdateV: byte option
+    ///// Update flag after Calculation. : N [7]
+    //UpdateN: byte option
     /// Update status flags "N" and "Z" based on the result of Memory or Accumulator.
     UpdateNZ: bool
 }
+

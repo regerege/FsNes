@@ -4,9 +4,9 @@ module Cpu =
     /// Plus Instruction.
     let private _adc c acm =
         let a = c.Register.A
-        let ret = c.Register.A + acm.Memory.Value + (c.Register.S &&& 1uy)
-        let v = ((a ^^^ ret) >>> 6)             // 計算前と計算後で最上位ビットが変化されていればオーバーフローとして扱う (0x7F以下から0x80以上に変化していた場合)
+        let ret = c.Register.A + acm.Value.Value + (c.Register.P &&& 1uy)
         let c = if a > ret then 1uy else 0uy    // 計算前より計算後の値が低い場合はオーバーフローとして扱う (0xFF + 0xFF = 0x1FE && 0xFF -> 0xFE, 前0xFF,後0xFE)
+        let v = ((a ^^^ ret) >>> 6)             // 計算前と計算後で最上位ビットが変化されていればオーバーフローとして扱う (0x7F以下から0x80以上に変化していた場合)
         { acm with ResultMemory = Some ret; UpdateC = Some c; UpdateV = Some v }
 
     /// Other Illegal Opcode.
@@ -33,6 +33,11 @@ module Cpu =
         
     /// Left Rotate
     let private _asl c acm =
+        let value =
+            if acm.Memory.IsSome then
+                acm.Memory.Value
+            else
+                c.Register.A
         let f v =
             let ret = v <<< 1
             let c = v >>> 7
@@ -58,14 +63,6 @@ module Cpu =
             { acm with ResultPC = Some b; Cycle = cycle }
         else
             acm
-
-    /// Test Instruction
-    let private _bit c acm =
-        let value = c.Register.A &&& acm.Memory.Value
-        let n = (value >>> 7) &&& 1uy
-        let v = (value >>> 6) &&& 1uy
-        let z = if value = 0uy then 1uy else 0uy
-        { acm with UpdateN = Some n; UpdateV = Some v; UpdateZ = Some z; }
 
     /// Branch : C = 0
     let private _bcc = branch (0, 0uy)
@@ -99,6 +96,22 @@ module Cpu =
     let private _sti c acm = { acm with UpdateI = Some 1uy }
     /// Set Flag : D <- 1
     let private _std c acm = { acm with UpdateD = Some 1uy }
+
+    /// Test Instruction
+    let private _bit c acm =
+        let value = c.Register.A &&& acm.Memory.Value
+        let n = (value >>> 7) &&& 1uy
+        let v = (value >>> 6) &&& 1uy
+        let z = if value = 0uy then 1uy else 0uy
+        { acm with UpdateN = Some n; UpdateV = Some v; UpdateZ = Some z; }
+
+    /// Test Instruction
+    let private _cmp c acm =
+        let value = c.Register.A - acm.Memory.Value
+        let c = (value >>> 6) &&& 1uy
+        let n = (value >>> 7) &&& 1uy
+        let z = if value = 0uy then 1uy else 0uy
+        { acm with UpdateN = Some n; UpdateV = Some v; UpdateZ = Some z; }
 
     /// CPU Cycle Count
     let private Cycles =
@@ -222,7 +235,7 @@ module Cpu =
         acm
     /// Addressing Mode : Accumlator
     let private acm c acm =
-        acm
+        { acm with Memory = Some c.Register.A }
     /// Addressing Mode : Immediate
     let private imm c acm =
         { acm with Memory = Some <| (byte)acm.Oprand.Value }
@@ -280,25 +293,25 @@ module Cpu =
                 { c with Register = { c.Register with P = p } }
             | _ -> c
         else c
-    /// ステータスフラグの更新
-    let private updateP acm c =
-        let mask,value =
-            seq[
-                0, acm.UpdateC
-                1, acm.UpdateZ
-                2, acm.UpdateI
-                3, acm.UpdateD
-                6, acm.UpdateV
-                7, acm.UpdateN
-            ]
-            |> Seq.filter (snd >> Option.isSome)
-            |> Seq.fold (fun (m,v) (a,b) -> (m ||| (1uy <<< a)),(v ||| b.Value)) (0uy, 0uy)
-        let p = c.Register.P &&& (mask ^^^ 0xFFuy) ||| value
-        { c with Register = { c.Register with P = p } }
+    ///// ステータスフラグの更新
+    //let private updateP acm c =
+    //    let mask,value =
+    //        seq[
+    //            0, acm.UpdateC
+    //            1, acm.UpdateZ
+    //            2, acm.UpdateI
+    //            3, acm.UpdateD
+    //            6, acm.UpdateV
+    //            7, acm.UpdateN
+    //        ]
+    //        |> Seq.filter (snd >> Option.isSome)
+    //        |> Seq.fold (fun (m,v) (a,b) -> (m ||| (1uy <<< a)),(v ||| b.Value)) (0uy, 0uy)
+    //    let p = c.Register.P &&& (mask ^^^ 0xFFuy) ||| value
+    //    { c with Register = { c.Register with P = p } }
     /// CPUアキュムレータの結果を Config に反映させる。
     let private update c acm =
         storeResult acm c
-        |> updateP acm
+        //|> updateP acm
         |> updateNZ acm
 
     /// Create CPU Accumulator
@@ -309,7 +322,7 @@ module Cpu =
             Cycle = Cycles.[opcode]
             Oprand = None
             Address = None
-            Memory = None
+            Value = None
             ResultMemory = None
             ResultA = None
             ResultX = None
@@ -317,12 +330,12 @@ module Cpu =
             ResultPC = None
             ResultS = None
             ResultP = None
-            UpdateN = None
-            UpdateV = None
-            UpdateI = None
-            UpdateD = None
-            UpdateZ = None
-            UpdateC = None
+            //UpdateN = None
+            //UpdateV = None
+            //UpdateI = None
+            //UpdateD = None
+            //UpdateZ = None
+            //UpdateC = None
             UpdateNZ = UpdateNZ.[opcode]
         }
 
@@ -351,5 +364,4 @@ module Cpu =
                 { c with Interrupt = Interrupt.BRK }
             else
                 step opcode c
-
 
