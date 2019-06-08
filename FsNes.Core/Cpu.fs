@@ -1,34 +1,52 @@
 ﻿namespace FsNes.Core
 
+open Microsoft.FSharp.Quotations
+
 module Cpu =
+    let bitcount (v:byte) =
+        let a = (v &&& 0xAAuy >>> 1) + (v &&& 0x55uy)
+        let b = (a &&& 0xCCuy >>> 2) + (a &&& 0x33uy)
+        let c = (b &&& 0xF0uy >>> 4) + (b &&& 0x0Fuy)
+        c
+
+    let calcStatusC a b = if a > b then Masks.StatusFlag.C else 0uy
+    let calcStatusZ v = if v = 0uy then Masks.StatusFlag.Z else 0uy
+    let calcStatusV a b = (a &&& 0x7Fuy) ^^^ (b &&& 0x7Fuy) >>> 1
+    let calcStatusN v = v &&& Masks.StatusFlag.N
+    let getC c = c.Register.P &&& Masks.StatusFlag.C
+    let getZ c = c.Register.P &&& Masks.StatusFlag.Z
+    let getI c = c.Register.P &&& Masks.StatusFlag.I
+    let getD c = c.Register.P &&& Masks.StatusFlag.D
+    let getV c = c.Register.P &&& Masks.StatusFlag.V
+    let getN c = c.Register.P &&& Masks.StatusFlag.N
+
     /// Plus Instruction.
     let private _adc c acm =
         let a = c.Register.A
         let ret = c.Register.A + acm.Value.Value + (c.Register.P &&& 1uy)
-        let c = if a > ret then 1uy else 0uy    // 計算前より計算後の値が低い場合はオーバーフローとして扱う (0xFF + 0xFF = 0x1FE && 0xFF -> 0xFE, 前0xFF,後0xFE)
-        let v = ((a ^^^ ret) >>> 6)             // 計算前と計算後で最上位ビットが変化されていればオーバーフローとして扱う (0x7F以下から0x80以上に変化していた場合)
-        { acm with ResultMemory = Some ret; UpdateC = Some c; UpdateV = Some v }
+        let p = calcStatusC a ret ||| calcStatusV a ret
+        { acm with ResultMemory = Some ret; ResultP = Some p }
 
     /// Other Illegal Opcode.
     let private _anc c acm =
-        let ret = c.Register.A &&& acm.Memory.Value
-        // ステータスフラグの更新必要？
+        let ret = c.Register.A &&& acm.Value.Value
         { acm with ResultA = Some ret }
 
     /// Logical Conjunction.
     let private _and c acm =
-        let ret = c.Register.A &&& acm.Memory.Value
+        let ret = c.Register.A &&& acm.Value.Value
         { acm with ResultA = Some ret }
 
     /// Unoffical Opcode.
     let private _ane c acm =
-        let ret = (c.Register.A ||| 0xEEuy) &&& c.Register.X &&& acm.Memory.Value
+        let ret = (c.Register.A ||| 0xEEuy) &&& c.Register.X &&& acm.Value.Value
         { acm with ResultA = Some ret }
 
     /// Unoffical Opcode.
     let private _arr c acm =
-        let ret = ((c.Register.A &&& acm.Memory.Value) >>> 1) ||| ((c.Register.P &&& 1uy) <<< 7)
-        let c = (c.Register.A &&& acm.Memory.Value) &&& 1uy
+        let a = c.Register.A &&& acm.Value.Value
+        let ret = (a >>> 1) ||| (getC c <<< 7)
+        let c = (c.Register.A &&& acm.Value.Value) &&& 1uy
         { acm with ResultA = Some ret; UpdateC = Some c }
         
     /// Left Rotate
@@ -260,34 +278,27 @@ module Cpu =
         let addr = (int)c.WRAM.[acm.Oprand.Value]
         { acm with Address = Some addr; }
 
-
     /// Reflect the calculation results to 'Config'.
     /// 計算結果を config に反映させる。
     let private storeResult acm c =
-        let result =
-            acm.ResultMemory,
-            acm.ResultA,
-            acm.ResultX,
-            acm.ResultY,
-            acm.ResultPC,
-            acm.ResultS,
-            acm.ResultP
-        match result with
-        | Some x,_,_,_,_,_,_ -> c.WRAM.[acm.Address.Value] <- x; c
-        | _,Some x,_,_,_,_,_ -> { c with Register = { c.Register with A = x } }
-        | _,_,Some x,_,_,_,_ -> { c with Register = { c.Register with X = x } }
-        | _,_,_,Some x,_,_,_ -> { c with Register = { c.Register with Y = x } }
-        | _,_,_,_,Some x,_,_ -> { c with Register = { c.Register with PC = x } }
-        | _,_,_,_,_,Some x,_ -> { c with Register = { c.Register with S = x } }
-        | _,_,_,_,_,_,Some x -> { c with Register = { c.Register with P = x } }
-        | _ -> c
+        let set o f c =
+            match o with
+            | Some x -> f x c
+            | None -> c
+        set acm.ResultMemory (fun v c -> c.WRAM.[acm.Address.Value] <- v; c) c
+        |> set acm.ResultPC (fun v c -> { c with Register = { c.Register with PC = v } })
+        |> set acm.ResultA (fun v c -> { c with Register = { c.Register with A = v } })
+        |> set acm.ResultX (fun v c -> { c with Register = { c.Register with X = v } })
+        |> set acm.ResultY (fun v c -> { c with Register = { c.Register with Y = v } })
+        |> set acm.ResultS (fun v c -> { c with Register = { c.Register with S = v } })
+        |> set acm.ResultP (fun v c -> { c with Register = { c.Register with P = v } })
     /// 計算結果をもとにステータスフラグ N Z の更新を行う。
     let private updateNZ acm c =
         if acm.UpdateNZ then
             match acm.ResultMemory, acm.ResultA with
             | Some value, None
             | None, Some value ->
-                let n = value &&& (1uy <<< 7)       // 負の数なら7bit目を 1
+                let n = value &&& (1uy <<< 7)                           // 負の数なら7bit目を 1
                 let z = (if value = 0uy then 1uy else 0uy) <<< 1        // 値が 0 なら2bit目を 1
                 let p = c.Register.P ||| n ||| z
                 { c with Register = { c.Register with P = p } }
