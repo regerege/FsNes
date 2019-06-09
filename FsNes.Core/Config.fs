@@ -38,7 +38,7 @@
 /// ･NMIや疑似割り込みBRK命令を含む割り込みは、暗黙的にステータスレジスタをスタックにプッシュします。
 /// ･RTIで戻る割り込みは、保存されたステータスレジスタを暗黙的にスタックから取得します。
 /// </remarks>
-type StatusFlag = {
+type Status = {
     /// <summary>Carry</summary>
     /// <remarks>
     /// ･After ADC, this is the carry result of the addition.
@@ -187,8 +187,7 @@ type Register = {
     /// P has 6 bits used by the ALU but is byte-wide. PHP, PLP, arithmetic, testing, and branch instructions can access this register.
     /// PにはALUで使用される6ビットがありますが、バイト幅です。 PHP、PLP、算術演算、テスト、分岐命令はこのレジスタにアクセスできます。
     /// </remarks>
-    P : byte
-    //P : StatusFlag
+    P : Status
 }
 
 /// 割り込み処理
