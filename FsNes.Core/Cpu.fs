@@ -9,24 +9,30 @@ module Cpu =
         let c = (b &&& 0xF0uy >>> 4) + (b &&& 0x0Fuy)
         c
 
-    let calcStatusC a b = if a > b then Masks.StatusFlag.C else 0uy
-    let calcStatusZ v = if v = 0uy then Masks.StatusFlag.Z else 0uy
-    let calcStatusV a b = (a &&& 0x7Fuy) ^^^ (b &&& 0x7Fuy) >>> 1
-    let calcStatusN v = v &&& Masks.StatusFlag.N
-    let calcStatusP c v = c.Register.P &&& (0xFFuy ^^^ v) ||| v
-    let getC c = c.Register.P &&& Masks.StatusFlag.C
-    let getZ c = c.Register.P &&& Masks.StatusFlag.Z
-    let getI c = c.Register.P &&& Masks.StatusFlag.I
-    let getD c = c.Register.P &&& Masks.StatusFlag.D
-    let getV c = c.Register.P &&& Masks.StatusFlag.V
-    let getN c = c.Register.P &&& Masks.StatusFlag.N
+    // 
+    let calcStatusCA a b = Some <| if a > b then Masks.StatusFlag.C else 0uy
+    let calcStatusCS a b = Some <| if a >= b then Masks.StatusFlag.C else 0uy
+    let calcStatusCR v = v &&& Masks.StatusFlag.C |> Some
+    let calcStatusCL v = v >>> 7 &&& Masks.StatusFlag.C |> Some
+    //let calcStatusZ v = [0..7] |> List.map ((>>>)v >> (&&&)1uy) |> List.reduce(|||) |> ((^^^)1uy)
+    let calcStatusZ v = Some <| if v = 0uy then Masks.StatusFlag.Z else 0uy
+    let calcStatusV a b = (a &&& 0x7Fuy) ^^^ (b &&& 0x7Fuy) >>> 1 |> Some
+    let calcStatusN v = v &&& Masks.StatusFlag.N |> Some
+    //let calcStatusP c v = c.Register.P &&& (0xFFuy ^^^ v) ||| v
+    //let getC c = c.Register.P.C
+    //let getZ c = c.Register.P.Z
+    //let getI c = c.Register.P.I
+    //let getD c = c.Register.P.D
+    //let getV c = c.Register.P.V
+    //let getN c = c.Register.P.N
 
     /// Plus Instruction.
     let public _adc c acm =
         let a = c.Register.A
-        let ret = c.Register.A + acm.Value.Value + (c.Register.P &&& 1uy)
-        let p = calcStatusC a ret ||| calcStatusV a ret
-        { acm with ResultMemory = Some ret; ResultP = Some p }
+        let ret = c.Register.A + acm.Value.Value + (c.Register.P.C &&& 1uy)
+        let c = calcStatusCA a ret
+        let v = calcStatusV a ret
+        { acm with ResultMemory = Some ret; ResultC = c; ResultV = v }
 
     /// Other Illegal Opcode.
     let public _anc c acm =
@@ -46,38 +52,32 @@ module Cpu =
     /// Unoffical Opcode.
     let public _arr c acm =
         let a = c.Register.A &&& acm.Value.Value
-        let ret = (a >>> 1) ||| (getC c <<< 7)
-        let c = (c.Register.A &&& acm.Value.Value) &&& 1uy
-        { acm with ResultA = Some ret; UpdateC = Some c }
+        let ret = (a >>> 1) ||| (c.Register.P.C <<< 7)
+        let c = calcStatusCR a
+        { acm with ResultA = Some ret; ResultC = c }
         
     /// Left Rotate
     let public _asl c acm =
-        let value =
-            if acm.Memory.IsSome then
-                acm.Memory.Value
-            else
-                c.Register.A
-        let f v =
-            let ret = v <<< 1
-            let c = v >>> 7
-            { acm with ResultA = Some ret; UpdateC = Some c }
-        match acm.Memory with
-        | Some v -> v
-        | None -> c.Register.A
-        |> f
+        let v = acm.Value.Value
+        let ret = v <<< 1
+        let c = calcStatusCL v
+        if acm.Address.IsNone then
+            { acm with ResultA = Some ret; ResultC = c }
+        else
+            { acm with ResultMemory = Some ret; ResultC = c }
 
     /// Other Illegal Opcode.
     let public _asr c acm =
-        let v = c.Register.A &&& acm.Memory.Value
+        let v = c.Register.A &&& acm.Value.Value
         let ret = v >>> 1
-        let c = v &&& 1uy
-        { acm with ResultA = Some ret; UpdateC = Some c }
+        let c = calcStatusCR v
+        { acm with ResultA = Some ret; ResultC = c }
 
     /// Branch Main Function
     let public branch (digits, comp) c acm =
-        if (c.Register.P >>> digits &&& 1uy) = comp then
+        if c.Register.P.[digits] = comp then
             let a = c.Register.PC + 1s
-            let b = a + (int16)acm.Memory.Value
+            let b = a + (int16)acm.Value.Value
             let cycle = acm.Cycle + 1 + (int)((a ^^^ b) >>> 8)
             { acm with ResultPC = Some b; Cycle = cycle }
         else
@@ -101,36 +101,36 @@ module Cpu =
     let public _bmi = branch (7, 1uy)
 
     /// Clear Flag : C <- 0
-    let public _clc c acm = { acm with UpdateC = Some 0uy }
+    let public _clc c acm = { acm with ResultC = Some 0uy }
     /// Clear Flag : I <- 0
-    let public _cli c acm = { acm with UpdateI = Some 0uy }
+    let public _cli c acm = { acm with ResultI = Some 0uy }
     /// Clear Flag : V <- 0
-    let public _clv c acm = { acm with UpdateV = Some 0uy }
+    let public _clv c acm = { acm with ResultV = Some 0uy }
     /// Clear Flag : D <- 0
-    let public _cld c acm = { acm with UpdateD = Some 0uy }
+    let public _cld c acm = { acm with ResultD = Some 0uy }
         
     /// Set Flag : C <- 1
-    let public _stc c acm = { acm with UpdateC = Some 1uy }
+    let public _stc c acm = { acm with ResultC = Some 1uy }
     /// Set Flag : I <- 1
-    let public _sti c acm = { acm with UpdateI = Some 1uy }
+    let public _sti c acm = { acm with ResultI = Some 1uy }
     /// Set Flag : D <- 1
-    let public _std c acm = { acm with UpdateD = Some 1uy }
+    let public _std c acm = { acm with ResultD = Some 1uy }
 
     /// Test Instruction
     let public _bit c acm =
-        let value = c.Register.A &&& acm.Memory.Value
-        let n = (value >>> 7) &&& 1uy
-        let v = (value >>> 6) &&& 1uy
-        let z = if value = 0uy then 1uy else 0uy
-        { acm with UpdateN = Some n; UpdateV = Some v; UpdateZ = Some z; }
+        let value = c.Register.A &&& acm.Value.Value
+        let n = (value >>> 7) &&& 1uy |> Some
+        let v = (value >>> 6) &&& 1uy |> Some
+        let z = calcStatusZ value
+        { acm with ResultN = n; ResultV = v; ResultZ = z; }
 
     /// Test Instruction
     let public _cmp c acm =
-        let value = c.Register.A - acm.Memory.Value
-        let c = (value >>> 6) &&& 1uy
-        let n = (value >>> 7) &&& 1uy
-        let z = if value = 0uy then 1uy else 0uy
-        { acm with UpdateN = Some n; UpdateV = Some v; UpdateZ = Some z; }
+        let value = c.Register.A - acm.Value.Value
+        let c = (value >>> 6) &&& 1uy |> Some
+        let n = (value >>> 7) &&& 1uy |> Some
+        let z = calcStatusZ value
+        { acm with ResultN = n; ResultZ = z; ResultC = c; }
 
     /// CPU Cycle Count
     let public Cycles =
@@ -223,57 +223,57 @@ module Cpu =
     /// Addressing Mode : Zero Page, X
     let public zpx c acm =
         let address = (int)((byte)acm.Oprand.Value + c.Register.X)
-        { acm with Address = Some address; Memory = Some(c.WRAM.[address]) }
+        { acm with Address = Some address; Value = Some(c.WRAM.[address]) }
     /// Addressing Mode : Zero Page, Y
     let public zpy c acm =
         let address = (int)((byte)acm.Oprand.Value + c.Register.Y)
-        { acm with Address = Some address; Memory = Some(c.WRAM.[address]) }
+        { acm with Address = Some address; Value = Some(c.WRAM.[address]) }
     /// Addressing Mode : Absolute, X
     let public aix c acm =
         let address = acm.Oprand.Value + (int)c.Register.X
         let cycle = calcCycle acm.Cycle acm.Oprand.Value ((int)c.Register.X)
-        { acm with Address = Some address; Memory = Some(c.WRAM.[address]); Cycle = cycle }
+        { acm with Address = Some address; Value = Some(c.WRAM.[address]); Cycle = cycle }
     /// Addressing Mode : Absolute, Y
     let public aiy c acm =
         let address = acm.Oprand.Value + (int)c.Register.Y
         let cycle = calcCycle acm.Cycle acm.Oprand.Value ((int)c.Register.Y)
-        { acm with Address = Some address; Memory = Some(c.WRAM.[address]); Cycle = cycle }
+        { acm with Address = Some address; Value = Some(c.WRAM.[address]); Cycle = cycle }
     /// Addressing Mode : (Indirect, X)
     let public iix c acm =
         let address = (int)((byte)acm.Oprand.Value + c.Register.X)
         let address2 = (int)c.WRAM.[address]
-        { acm with Address = Some address2; Memory = Some(c.WRAM.[address2]) }
+        { acm with Address = Some address2; Value = Some(c.WRAM.[address2]) }
     /// Addressing Mode : (Indirect), Y
     let public iiy c acm =
         let address = (int)c.WRAM.[acm.Oprand.Value]
         let address2 = address + (int)c.Register.Y
         let cycle = calcCycle acm.Cycle address ((int)c.Register.Y)
-        { acm with Address = Some address2; Memory = Some(c.WRAM.[address2]); Cycle = cycle }
+        { acm with Address = Some address2; Value = Some(c.WRAM.[address2]); Cycle = cycle }
     /// Addressing Mode : Implied
     let public imp c acm =
         acm
     /// Addressing Mode : Accumlator
     let public acm c acm =
-        { acm with Memory = Some c.Register.A }
+        { acm with Value = Some c.Register.A }
     /// Addressing Mode : Immediate
     let public imm c acm =
-        { acm with Memory = Some <| (byte)acm.Oprand.Value }
+        { acm with Value = Some <| (byte)acm.Oprand.Value }
     /// Addressing Mode : Zero Page
     let public zp_ c acm =
         let addr = acm.Oprand.Value
         let mem = c.WRAM.[addr]
-        { acm with Address = Some addr; Memory = Some mem }
+        { acm with Address = Some addr; Value = Some mem }
     /// Addressing Mode : Absolute
     let public abs c acm =
         let addr = acm.Oprand.Value
         let mem = c.WRAM.[addr]
-        { acm with Address = Some addr; Memory = Some mem }
+        { acm with Address = Some addr; Value = Some mem }
     /// Addressing Mode : Relative
     /// * The cycle calculation when crossing page boundaries is performed by "Instruction".
     let public rel c acm =
         let addr = acm.Oprand.Value
         let mem = c.WRAM.[addr]
-        { acm with Address = Some addr; Memory = Some mem }
+        { acm with Address = Some addr; Value = Some mem }
     /// Addressing Mode : Indirect   (JMP ($5597))
     let public ind c acm =
         let addr = (int)c.WRAM.[acm.Oprand.Value]
@@ -286,13 +286,20 @@ module Cpu =
             match o with
             | Some x -> f x c
             | None -> c
+        let setP =
+            set acm.ResultC (fun v p -> { p with C = v })
+            >> set acm.ResultZ (fun v p -> { p with Z = v })
+            >> set acm.ResultI (fun v p -> { p with I = v })
+            >> set acm.ResultD (fun v p -> { p with D = v })
+            >> set acm.ResultV (fun v p -> { p with V = v })
+            >> set acm.ResultN (fun v p -> { p with N = v })
         set acm.ResultMemory (fun v c -> c.WRAM.[acm.Address.Value] <- v; c) c
         |> set acm.ResultPC (fun v c -> { c with Register = { c.Register with PC = v } })
         |> set acm.ResultA (fun v c -> { c with Register = { c.Register with A = v } })
         |> set acm.ResultX (fun v c -> { c with Register = { c.Register with X = v } })
         |> set acm.ResultY (fun v c -> { c with Register = { c.Register with Y = v } })
         |> set acm.ResultS (fun v c -> { c with Register = { c.Register with S = v } })
-        |> set acm.ResultP (fun v c -> { c with Register = { c.Register with P = v } })
+        |> fun c -> { c with Register = { c.Register with P = setP c.Register.P } }
     /// 計算結果をもとにステータスフラグ N Z の更新を行う。
     let public updateNZ acm c =
         if acm.UpdateNZ then
@@ -301,29 +308,12 @@ module Cpu =
             | None, Some value ->
                 let n = value &&& (1uy <<< 7)                           // 負の数なら7bit目を 1
                 let z = (if value = 0uy then 1uy else 0uy) <<< 1        // 値が 0 なら2bit目を 1
-                let p = c.Register.P ||| n ||| z
-                { c with Register = { c.Register with P = p } }
+                { c with Register = { c.Register with P = { c.Register.P with N = n; Z = z } } }
             | _ -> c
         else c
-    ///// ステータスフラグの更新
-    //let public updateP acm c =
-    //    let mask,value =
-    //        seq[
-    //            0, acm.UpdateC
-    //            1, acm.UpdateZ
-    //            2, acm.UpdateI
-    //            3, acm.UpdateD
-    //            6, acm.UpdateV
-    //            7, acm.UpdateN
-    //        ]
-    //        |> Seq.filter (snd >> Option.isSome)
-    //        |> Seq.fold (fun (m,v) (a,b) -> (m ||| (1uy <<< a)),(v ||| b.Value)) (0uy, 0uy)
-    //    let p = c.Register.P &&& (mask ^^^ 0xFFuy) ||| value
-    //    { c with Register = { c.Register with P = p } }
     /// CPUアキュムレータの結果を Config に反映させる。
     let public update c acm =
         storeResult acm c
-        //|> updateP acm
         |> updateNZ acm
 
     /// Create CPU Accumulator
@@ -341,13 +331,12 @@ module Cpu =
             ResultY = None
             ResultPC = None
             ResultS = None
-            ResultP = None
-            //UpdateN = None
-            //UpdateV = None
-            //UpdateI = None
-            //UpdateD = None
-            //UpdateZ = None
-            //UpdateC = None
+            ResultC = None
+            ResultZ = None
+            ResultI = None
+            ResultD = None
+            ResultV = None
+            ResultN = None
             UpdateNZ = UpdateNZ.[opcode]
         }
 

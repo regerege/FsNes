@@ -53,14 +53,14 @@ type Status = {
     /// ･増減命令はキャリーフラグに影響を与えません。
     /// ･SEC、CLCで直接設定またはクリアできます。
     /// </remarks>
-    C : bool
+    C : byte
     /// <summary>Zero</summary>
     /// <remarks>
     /// After most instructions that have a value result, if that value is zero, this flag will be set.
     /// 
     /// このフラグは直前の計算結果(比較命令は実際には結果が保存されていない減算を行っています)がゼロになった場合にセットされます。
     /// </remarks>
-    Z : bool
+    Z : byte
     /// <summary>割り込み不可</summary>
     /// <remarks>
     /// ･When set, all interrupts except the NMI are inhibited.
@@ -73,7 +73,7 @@ type Status = {
     /// ･IRQがトリガーされたときにCPUによって自動的に設定され、RTIによって前の状態に復元されます。
     /// ･このフラグがクリアされているときに/ IRQラインがロー（IRQペンディング）になっていると、直ちに割り込みがトリガされます。
     /// </remarks>
-    I : bool
+    I : byte
     /// <summary>Decimal</summary>
     /// <remarks>
     /// ･On the NES, this flag has no effect.
@@ -84,7 +84,7 @@ type Status = {
     /// ･オリジナルの6502では、このフラグはいくつかの算術命令に10進法の2進数表現を使い、10進法の計算をより簡単にします。
     /// ･SED、CLDを使用して直接設定または消去できます。
     /// </remarks>
-    D : bool
+    D : byte
     /// <summary>The B flag</summary>
     /// <remarks>
     /// While there are only six flags in the processor status register within the CPU, when transferred to the stack, there are two additional bits. These do not represent a register that cna hold a value but can be used to distinguish how ther flag s were pushed.
@@ -123,7 +123,7 @@ type Status = {
     /// IRQハンドラが/ IRQとBRKを区別する唯一の方法は、スタックからフラグバイトを読み取ってビット4をテストすることです。これが遅いことが、BRKがシステムコールメカニズムとして使用されなかった理由の1つです。 代わりに、/ IRQベクトルをハングアップさせるパッチメカニズムを起動するために使用されることが多くなりました。PROM、UVEPROM、フラッシュなどの1バイトは0に強制され、IRQハンドラは代わりに何かを実行します。 プログラムカウンタ
     /// ビット5および4とは異なり、ビット3は実際にはPに存在します。ただし、MOSテクノロジー独自のチップのように2A03または2A07 CPUのALU操作には影響しません。
     /// </remarks>
-    B : bool
+    B : byte
     /// <summary>オーバーフロー</summary>
     /// <remarks>
     /// ･ADC, SBC, and CMP will set this flag if the signed result would be invalid, necessary for making signed comparisons.
@@ -134,7 +134,7 @@ type Status = {
     /// ･BITはアドレス指定された値のビット6を直接Vフラグにロードします。
     /// ･CLVで直接クリアできます。 対応する設定命令はありません。
     /// </remarks>
-    V : bool
+    V : byte
     /// <summary>Nagtive</summary>
     /// <remarks>
     /// ･After most instructions that have a value result, this flag will contain bit 7 of that result.
@@ -143,8 +143,22 @@ type Status = {
     /// ･値が結果となるほとんどの命令の後、このフラグはその結果のビット7を含みます。
     /// ･BITはアドレス指定された値のビット7を直接Nフラグにロードします。
     /// </remarks>
-    N : bool
+    N : byte
 }
+with
+    member x.Item
+        with get index =
+            match index with
+            | 0 -> x.C
+            | 1 -> x.Z
+            | 2 -> x.I
+            | 3 -> x.D
+            | 4 -> x.B
+            | 5 -> x.B
+            | 6 -> x.V
+            | 7 -> x.N
+            | _ -> failwith "ステータスフラグの桁数は 8桁 までです。"
+end
 
 /// <summary>Registers</summary>
 /// <remarks>
@@ -236,20 +250,18 @@ type CpuAccumulator = {
     ResultPC: int16 option
     /// Calculation result. Store in Stack Pointer Address.
     ResultS: byte option
-    /// Calculation result. Store in Status.
-    ResultP: byte option
-    ///// Update flag after Calculation. : C [0]
-    //UpdateC: byte option
-    ///// Update flag after Calculation. : Z [1]
-    //UpdateZ: byte option
-    ///// Update flag after Calculation. : I [2]
-    //UpdateI: byte option
-    ///// Update flag after Calculation. : D [3]
-    //UpdateD: byte option
-    ///// Update flag after Calculation. : V [6]
-    //UpdateV: byte option
-    ///// Update flag after Calculation. : N [7]
-    //UpdateN: byte option
+    /// Calculation result. Store in Status C[0].
+    ResultC: byte option
+    /// Calculation result. Store in Status Z[1].
+    ResultZ: byte option
+    /// Calculation result. Store in Status I[2].
+    ResultI: byte option
+    /// Calculation result. Store in Status D[3].
+    ResultD: byte option
+    /// Calculation result. Store in Status V[6].
+    ResultV: byte option
+    /// Calculation result. Store in Status N[7].
+    ResultN: byte option
     /// Update status flags "N" and "Z" based on the result of Memory or Accumulator.
     UpdateNZ: bool
 }
