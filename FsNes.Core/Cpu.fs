@@ -7,6 +7,20 @@ module Cpu =
         let c = (b &&& 0xF0uy >>> 4) + (b &&& 0x0Fuy)
         c
 
+    /// Increment and Decrement Active Pettern.
+    let private (|IDC|IDX|IDY|) = function
+        | Some v, None, None -> IDC v
+        | None, Some v, None -> IDX v
+        | None, None, Some v -> IDY v
+        | _ -> failwith "存在しないパターンです。"
+
+    /// JMP Instruction Active Pattern
+    let (|JMPABS|JMPIND|) op =
+        match op with
+        | 0x4C -> JMPABS
+        | 0x6C -> JMPIND
+        | _ -> failwith "存在しないパターンです。"
+
     /// Add
     let calcStatusCA a b = Some <| if a > b then Masks.StatusFlag.C else 0uy
     /// Sub
@@ -40,12 +54,6 @@ module Cpu =
         else
             acm
 
-    /// Increment and Decrement Active Pettern.
-    let private (|IDC|IDX|IDY|) = function
-        | Some v, None, None -> IDC v
-        | None, Some v, None -> IDX v
-        | None, None, Some v -> IDY v
-        | _ -> failwith "存在しないパターンです。"
     /// Increment and Decrement Main Function.
     let private incAdec op acm o =
         let a =
@@ -183,7 +191,6 @@ module Cpu =
     let private _dex c acm = incAdec (-) acm (None, Some c.Register.X, None)
     /// Decrement Index Y
     let private _dey c acm = incAdec (-) acm (None, None, Some c.Register.Y)
-
     /// Increment Memory
     let private _inc c acm = incAdec (+) acm (acm.Value, None, None)
     /// Increment Index X
@@ -201,6 +208,16 @@ module Cpu =
         let v = calcStatusV a value
         let n = calcStatusN value
         { acm with ResultMemory = Some value; ResultN = n; ResultV = v; ResultZ = z; ResultC = c; }
+
+    let private _jmp c acm =
+        let pc =
+            match acm.Opcode with
+            | JMPABS -> (int16)acm.Address.Value
+            | JMPIND ->
+                let addrL = acm.Address.Value
+                let addrH = addrL &&& 0xFF00 ||| (addrL + 1) &&& 0x00FF
+                (int16)c.WRAM.[addrL] ||| ((int16)c.WRAM.[addrH] <<< 8)
+        { acm with ResultPC = Some pc }
 
     /// CPU Cycle Count
     let private Cycles =
@@ -269,16 +286,12 @@ module Cpu =
         ]
 
     /// Read Oprand
-    let private readOpRand c acm =
+    let private readOprand c acm =
         let pc = (int)c.Register.PC + 1
-        let f (index:int) = (int)c.WRAM.[pc + index] <<< (8 * index)
         let oprand =
             match acm.Size with
-            | 2 | 3 ->
-                seq [2..acm.Size]
-                |> Seq.map ((-)2 >> f)
-                |> Seq.reduce(|||)
-                |> Some
+            | 2 -> (int)c.WRAM.[pc] |> Some
+            | 3 -> (int)c.WRAM.[pc] ||| ((int)c.WRAM.[pc+1] <<< 8) |> Some
             | _ -> None
         { acm with Oprand = oprand; Address = oprand }
 
@@ -330,24 +343,19 @@ module Cpu =
         { acm with Value = Some <| (byte)acm.Oprand.Value }
     /// Addressing Mode : Zero Page
     let private zp_ c acm =
-        let addr = acm.Oprand.Value
-        let mem = c.WRAM.[addr]
-        { acm with Address = Some addr; Value = Some mem }
+        let mem = c.WRAM.[acm.Address.Value]
+        { acm with Value = Some mem }
     /// Addressing Mode : Absolute
     let private abs c acm =
-        let addr = acm.Oprand.Value
-        let mem = c.WRAM.[addr]
-        { acm with Address = Some addr; Value = Some mem }
+        let mem = c.WRAM.[acm.Address.Value]
+        { acm with Value = Some mem }
     /// Addressing Mode : Relative
     /// * The cycle calculation when crossing page boundaries is performed by "Instruction".
     let private rel c acm =
-        let addr = acm.Oprand.Value
-        let mem = c.WRAM.[addr]
-        { acm with Address = Some addr; Value = Some mem }
+        let mem = c.WRAM.[acm.Address.Value]
+        { acm with Value = Some mem }
     /// Addressing Mode : Indirect   (JMP ($5597))
-    let private ind c acm =
-        let addr = (int)c.WRAM.[acm.Oprand.Value]
-        { acm with Address = Some addr; }
+    let private ind c acm = acm
 
     /// Reflect the calculation results to 'Config'.
     /// 計算結果を config に反映させる。
