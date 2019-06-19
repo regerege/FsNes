@@ -189,7 +189,7 @@ type Register = {
     /// The 2-byte program counter PC suports 65536 direct (unbanked) memory locations, however not all values are sent to the cartridge, It can be accessed either by allowing CPU's internal fetch logic increment the address bus, an interrupt(NMI, Rest, IRQ/BRQ), and unsing the RTS/JMP/JSR/Branch instructions.
     /// 2バイトプログラムカウンタPCは65536のダイレクト（非マッパー or バンク0の場合）メモリ位置をサポートしていますが、すべての値がカートリッジに送信されるわけではありません。CPUの内部フェッチロジックがアドレスバスをインクリメントさせることによってアクセスできます。 RTS / JMP / JSR / Branch 命令をアンシングします。
     /// </remarks>
-    PC : int16
+    PC : uint16
     /// <summary>Stack Pointer</summary>
     /// <remarks>
     /// S is byte-wide and can be accessed using interrupts, pulls, pushes, and transfers.
@@ -249,7 +249,7 @@ type CpuAccumulator = {
     /// Calculation result. Store in Index Y. 
     ResultY: byte option
     /// Calculation result. Store in Program Counter. 
-    ResultPC: int16 option
+    ResultPC: uint16 option
     /// Calculation result. Store in Stack Pointer Address.
     ResultS: byte option
     /// Calculation result. Store in Status C[0].

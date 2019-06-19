@@ -37,7 +37,7 @@ module Cpu =
 
     /// Stack Function　* Update using side effects.
     /// 副作用あり
-    let private push c acm value =
+    let private push c value acm =
         let s = c.Register.S
         let addr = 0x0100 ||| (int)s
         c.WRAM.[addr] <- value
@@ -62,8 +62,8 @@ module Cpu =
     /// Branch Main Function
     let private branch (digits, comp) c acm =
         if c.Register.P.[digits] = comp then
-            let a = c.Register.PC + 1s
-            let b = a + (int16)acm.Value.Value
+            let a = c.Register.PC + 1us
+            let b = a + (uint16)acm.Value.Value
             let cycle = acm.Cycle + 1 + (int)((a ^^^ b) >>> 8)
             { acm with ResultPC = Some b; Cycle = cycle }
         else
@@ -227,12 +227,23 @@ module Cpu =
     let private _jmp c acm =
         let pc =
             match acm.Opcode with
-            | JMPABS -> (int16)acm.Address.Value
+            | JMPABS -> (uint16)acm.Address.Value
             | JMPIND ->
                 let addrL = acm.Address.Value
                 let addrH = addrL &&& 0xFF00 ||| (addrL + 1) &&& 0x00FF
-                (int16)c.WRAM.[addrL] ||| ((int16)c.WRAM.[addrH] <<< 8)
+                (uint16)c.WRAM.[addrL] ||| ((uint16)c.WRAM.[addrH] <<< 8)
         { acm with ResultPC = Some pc }
+
+    let private _jsr c acm =
+        let value = c.Register.PC + 2us
+        let addrL = (byte)value
+        let addrH = (byte)(value >>> 8)
+        let f = push c
+        let acm =
+            push c addrH acm
+            |> push c addrL
+        let pc = acm.Address.Value - 1 |> uint16 |> Some
+        { acm with ResultPC = pc }
 
     /// CPU Cycle Count
     let private Cycles =
