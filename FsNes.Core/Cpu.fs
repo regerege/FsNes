@@ -15,7 +15,7 @@ module Cpu =
         | _ -> failwith "存在しないパターンです。"
 
     /// JMP Instruction Active Pattern
-    let (|JMPABS|JMPIND|) op =
+    let private (|JMPABS|JMPIND|) op =
         match op with
         | 0x4C -> JMPABS
         | 0x6C -> JMPIND
@@ -34,6 +34,21 @@ module Cpu =
     let calcStatusV a b = (a &&& 0x7Fuy) ^^^ (b &&& 0x7Fuy) >>> 1 |> Some
     let calcStatusN v = v &&& Masks.StatusFlag.N |> Some
     //let calcStatusP c v = c.Register.P &&& (0xFFuy ^^^ v) ||| v
+
+    /// Stack Function　* Update using side effects.
+    /// 副作用あり
+    let private push c acm value =
+        let s = c.Register.S
+        let addr = 0x0100 ||| (int)s
+        c.WRAM.[addr] <- value
+        { acm with ResultS = Some(s + 1uy) }
+    /// Stack Function  * Update using side effects.
+    /// 副作用あり
+    let private pop c acm =
+        let s = c.Register.S - 1uy
+        let addr = 0x0100 ||| (int)s
+        let value = Some c.WRAM.[addr]
+        { acm with ResultS = Some s; StackValue = value; }
 
     /// Compare Main Function
     let private compare acm a =
@@ -403,6 +418,7 @@ module Cpu =
             Oprand = None
             Address = None
             Value = None
+            StackValue = None
             ResultMemory = None
             ResultA = None
             ResultX = None

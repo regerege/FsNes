@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="MeasureDefinition.fs" />
     <Compile Include="Masks.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Cpu.fs" />
