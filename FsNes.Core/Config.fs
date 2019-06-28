@@ -239,7 +239,7 @@ type CpuAccumulator = {
     /// Memory or Accumulator
     Value: byte option
     /// Get Stack Value
-    StackValue: byte option
+    StackValue: byte array
     /// Calculation result. Store in memory.
     ResultMemory: byte option
     /// Calculation result. Store in Accumulator.
