@@ -5,11 +5,9 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open FsNes.Core
 
 [<TestClass>]
-type TestClass () =
-
+type CpuTest () =
     [<TestMethod>]
     member this.StackTest () =
-        // スタックポインタのみ値を変えておく
         let config : Config =
             {
                 CpuSkip = 0

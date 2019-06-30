@@ -251,7 +251,7 @@ type CpuAccumulator = {
     Opcode: int
     Oprand: byte list
     /// Source address
-    Address: int option
+    Address: int
     /// Memory or Accumulator
     Value: byte list
     /// Read or Write Target Destination.

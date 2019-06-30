@@ -14,3 +14,4 @@ type CommonTest () =
 
         list.ByteWord().Is(0xCCAA, "Byte型リストからByteWordの変換に失敗しました。")
         array.ByteWord().Is(0xDDBB, "Byte型配列からByteWordの変換に失敗しました。")
+
