@@ -146,6 +146,8 @@ type Status = {
     N : byte
 }
 with
+    member x.Value
+        with get () = x.C ||| x.Z ||| x.I ||| x.D ||| x.B ||| x.B ||| x.V ||| x.N
     member x.Item
         with get index =
             match index with
@@ -244,6 +246,7 @@ type Destination =
     | [<Literal>]B = 0x0800
     | [<Literal>]V = 0x1000
     | [<Literal>]N = 0x2000
+    | [<Literal>]P = 0x3F80
 
 /// CPU処理の計算途中結果を保持する構造体
 type CpuAccumulator = {
@@ -261,44 +264,4 @@ type CpuAccumulator = {
     /// CPU Memory
     WRAM: byte array
     }
-
-///// CPU処理の計算途中結果を保持する構造体
-//type CpuAccumulator = {
-//    Opcode: int
-//    Oprand: int option
-//    Size: int
-//    Cycle: int
-//    /// Source address
-//    Address: int option
-//    /// Memory or Accumulator
-//    Value: byte option
-//    /// Get Stack Value
-//    StackValue: byte array
-//    /// Calculation result. Store in memory.
-//    ResultMemory: byte option
-//    /// Calculation result. Store in Accumulator.
-//    ResultA: byte option
-//    /// Calculation result. Store in Index X. 
-//    ResultX: byte option
-//    /// Calculation result. Store in Index Y. 
-//    ResultY: byte option
-//    /// Calculation result. Store in Program Counter. 
-//    ResultPC: uint16 option
-//    /// Calculation result. Store in Stack Pointer Address.
-//    ResultS: byte option
-//    /// Calculation result. Store in Status C[0].
-//    ResultC: byte option
-//    /// Calculation result. Store in Status Z[1].
-//    ResultZ: byte option
-//    /// Calculation result. Store in Status I[2].
-//    ResultI: byte option
-//    /// Calculation result. Store in Status D[3].
-//    ResultD: byte option
-//    /// Calculation result. Store in Status V[6].
-//    ResultV: byte option
-//    /// Calculation result. Store in Status N[7].
-//    ResultN: byte option
-//    /// Update status flags "N" and "Z" based on the result of Memory or Accumulator.
-//    UpdateNZ: bool
-//}
 

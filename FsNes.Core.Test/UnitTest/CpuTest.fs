@@ -36,3 +36,26 @@ type CpuTest () =
         value.[3].Is(0x77uy)
         value.[4].Is(0x00uy)
         ()
+
+    [<TestMethod>]
+    member this.AdcTest () =
+        let config : Config =
+            {
+                CpuSkip = 0
+                PpuSkip = 0
+                Register = { A = 0xFDuy; X = 3uy; Y = 5uy; PC = 0x8000us; S = 0uy; P = { C = 0uy; Z = Masks.StatusFlag.Z; I = 0uy; D = 0uy; B = 0uy; V = Masks.StatusFlag.V; N = Masks.StatusFlag.N; } }
+                WRAM = [| for i in 0..0xFFFF -> 0uy |]
+                VRAM = [| for i in 0..0xFFFF -> 0uy |]
+                Interrupt = Interrupt.Empty
+            }
+
+        // 0x61 ::  ADC ($43,X)  ::  (Indirect, X)
+        config.WRAM.[0x8000] <- 0x61uy
+        config.WRAM.[0x8001] <- 0x11uy       // 0x11 + 0x03 = 0x14
+        config.WRAM.[0x0014] <- 0x33uy
+        config.WRAM.[0x0033] <- 0x05uy
+        let ret61 =
+            Cpu.createAccumulator 0x61 config
+            |> (Cpu.iix >> Cpu._adc >> Cpu.updateNZ)
+        ret61.Value.IsStructuralEqual([0x02uy])
+        ret61.Register.P.Value.Is(Masks.StatusFlag.C)

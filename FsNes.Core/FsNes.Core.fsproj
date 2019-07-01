@@ -12,8 +12,8 @@
 
   <ItemGroup>
     <Compile Include="Masks.fs" />
-    <Compile Include="Common.fs" />
     <Compile Include="Config.fs" />
+    <Compile Include="Common.fs" />
     <Compile Include="Cpu.fs" />
   </ItemGroup>
 

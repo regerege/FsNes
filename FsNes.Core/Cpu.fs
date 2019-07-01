@@ -1,5 +1,7 @@
 ﻿namespace FsNes.Core
 
+open FsNes.Core.Common
+
 module Cpu =
     let public bitcount (v:byte) =
         let a = (v &&& 0xAAuy >>> 1) + (v &&& 0x55uy)
@@ -30,7 +32,10 @@ module Cpu =
     /// Left Bit shift
     let public calcStatusCL v = v >>> 7 &&& Masks.StatusFlag.C
     let public calcStatusZ v = if v = 0uy then Masks.StatusFlag.Z else 0uy
-    let public calcStatusV a b = (a &&& 0x7Fuy) ^^^ (b &&& 0x7Fuy) >>> 1
+    let public calcStatusV a b c =
+        if a <= 0x7Fuy && b >= 0x80uy && c = true then Masks.StatusFlag.V
+        elif a >= 0x80uy && b <= 0x7Fuy && c = false then Masks.StatusFlag.V
+        else 0uy
     let public calcStatusN v = v &&& Masks.StatusFlag.N
 
     /// Stack Function
@@ -73,25 +78,21 @@ module Cpu =
             acm
 
     /// Increment and Decrement Main Function.
-    let public incAdec op acm o =
-        let a,dest =
-            match o with
-            | IDC v -> v,Destination.Memory
-            | IDX v -> v,Destination.X
-            | IDY v -> v,Destination.Y
-        let value = op a 1uy
+    let public incAdec op acm =
+        let value = op acm.Value.[0] 1uy
         let z = calcStatusZ value
         let n = calcStatusN value
-        if dest = Destination.Memory then
+        if acm.Destination.Is(Destination.Memory) then
             acm.WRAM.[0] <- 0xFFuy
+        let x = if acm.Destination.Is(Destination.X) then value else acm.Register.X
+        let y = if acm.Destination.Is(Destination.Y) then value else acm.Register.Y
         { acm with
             Value = [value]
-            Destination = dest
             Register =
                 { acm.Register with
                     P = { acm.Register.P with N = n; Z = z; }
-                    X = if dest = Destination.X then value else acm.Register.X
-                    Y = if dest = Destination.Y then value else acm.Register.Y
+                    X = x
+                    Y = y
                 }
         }
     
@@ -100,10 +101,9 @@ module Cpu =
         let a = acm.Register.A
         let value = acm.Register.A + acm.Value.[0] + (acm.Register.P.C &&& 1uy)
         let c = calcStatusCA a value
-        let v = calcStatusV a value
+        let v = calcStatusV a value true
         { acm with
             Value = [value]
-            Destination = Destination.Memory
             Register =
                 { acm.Register with
                     P = { acm.Register.P with V = v; C = c; }
@@ -115,7 +115,6 @@ module Cpu =
         let value = acm.Register.A &&& acm.Value.[0]
         { acm with
             Value = [value]
-            Destination = Destination.A
             Register = { acm.Register with A = value } }
 
     /// Logical Conjunction.
@@ -123,7 +122,6 @@ module Cpu =
         let value = acm.Register.A &&& acm.Value.[0]
         { acm with
             Value = [value]
-            Destination = Destination.A
             Register = { acm.Register with A = value } }
 
     /// Unoffical Opcode.
@@ -131,7 +129,6 @@ module Cpu =
         let value = (acm.Register.A ||| 0xEEuy) &&& acm.Register.X &&& acm.Value.[0]
         { acm with
             Value = [value]
-            Destination = Destination.A
             Register = { acm.Register with A = value } }
 
     /// Unoffical Opcode.
@@ -141,7 +138,6 @@ module Cpu =
         let c = calcStatusCR a
         { acm with
             Value = [value]
-            Destination = Destination.A
             Register =
                 { acm.Register with
                     A = value
@@ -153,10 +149,10 @@ module Cpu =
         let value = v <<< 1
         let c = calcStatusCL v
         let a =
-            if acm.Destination = Destination.A then
+            if acm.Destination.Is(Destination.A) then
                 value
             else acm.Register.A
-        if acm.Destination = Destination.Memory then
+        if acm.Destination.Is(Destination.Memory) then
             acm.WRAM.[acm.Address] <- value
         { acm with
             Value = [value]
@@ -172,7 +168,6 @@ module Cpu =
         let c = calcStatusCR v
         { acm with
             Value = [value]
-            Destination = Destination.A
             Register =
                 { acm.Register with
                     A = value
@@ -245,7 +240,6 @@ module Cpu =
         acm.WRAM.[acm.Address] <- value
         { acm with
             Value = [value]
-            Destination = Destination.Memory
             Register =
                 { acm.Register with
                     P = { acm.Register.P with
@@ -262,7 +256,6 @@ module Cpu =
         let n = calcStatusN value
         { acm with
             Value = [value]
-            Destination = Destination.A
             Register =
                 { acm.Register with
                     A = value
@@ -271,17 +264,17 @@ module Cpu =
                             Z = z} } }
 
     /// Decrement Memory
-    let public _dec acm = incAdec (-) acm (Some acm.Value.[0], None, None)
+    let public _dec acm = incAdec (-) acm
     /// Decrement Index X
-    let public _dex acm = incAdec (-) acm (None, Some acm.Register.X, None)
+    let public _dex acm = incAdec (-) acm
     /// Decrement Index Y
-    let public _dey acm = incAdec (-) acm (None, None, Some acm.Register.Y)
+    let public _dey acm = incAdec (-) acm
     /// Increment Memory
-    let public _inc acm = incAdec (+) acm (Some acm.Value.[0], None, None)
+    let public _inc acm = incAdec (+) acm
     /// Increment Index X
-    let public _inx acm = incAdec (+) acm (None, Some acm.Register.X, None)
+    let public _inx acm = incAdec (+) acm
     /// Increment Index Y
-    let public _iny acm = incAdec (+) acm (None, None, Some acm.Register.Y)
+    let public _iny acm = incAdec (+) acm
 
     /// Other Illegal Opcode.
     let public _isb acm =
@@ -290,12 +283,11 @@ module Cpu =
         let value = a - b
         let c = calcStatusCS a value
         let z = calcStatusZ value
-        let v = calcStatusV a value
+        let v = calcStatusV a value false
         let n = calcStatusN value
         acm.WRAM.[acm.Address] <- value
         { acm with
             Value = [value]
-            Destination = Destination.Memory
             Register =
                 { acm.Register with
                     P = { acm.Register.P with
@@ -366,6 +358,27 @@ module Cpu =
             2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0xF*
         ]
 
+    let public Destinations : Destination list =
+        [
+            //    0            1            2            3            4            5            6            7            8            9            A            B            C            D            E            F
+            enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x0*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x1*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x2100; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x3780; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x2100; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x2*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x3*
+            enum 0x37A2; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x0020; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x4*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x5*
+            enum 0x0022; enum 0x2184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186; enum 0x0004; enum 0x2184; enum 0x0184; enum 0x2180; enum 0x0020; enum 0x2184; enum 0x0182; enum 0x2186;     // 0x6*
+            enum 0x0020; enum 0x2184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186;     // 0x7*
+            enum 0x0000; enum 0x0002; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0110; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002;     // 0x8*
+            enum 0x0020; enum 0x0002; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0104; enum 0x0002; enum 0x0140; enum 0x0042; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002;     // 0x9*
+            enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C;     // 0xA*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0000; enum 0x0104; enum 0x0148; enum 0x014C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C;     // 0xB*
+            enum 0x0180; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0180; enum 0x0180; enum 0x0102; enum 0x0182; enum 0x0110; enum 0x0180; enum 0x0108; enum 0x0188; enum 0x0180; enum 0x0180; enum 0x0102; enum 0x0182;     // 0xC*
+            enum 0x0020; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0102; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0102; enum 0x0182;     // 0xD*
+            enum 0x0180; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0180; enum 0x2184; enum 0x0102; enum 0x2182; enum 0x0108; enum 0x2184; enum 0x0000; enum 0x2184; enum 0x0180; enum 0x2184; enum 0x0102; enum 0x2182;     // 0xE*
+            enum 0x0020; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0102; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0102; enum 0x2182;     // 0xF*
+        ]
+
     /// Flag Updates
     let public UpdateNZ =
         [
@@ -399,55 +412,55 @@ module Cpu =
     let public zpx acm =
         let address = (int)((byte)acm.Oprand.[0] + acm.Register.X)
         let value = [ acm.WRAM.[address] ]
-        { acm with Address = address; Value = value; Destination = Destination.Memory; }
+        { acm with Address = address; Value = value; }
     /// Addressing Mode : Zero Page, Y
     let public zpy acm =
         let address = (int)((byte)acm.Oprand.[0] + acm.Register.Y)
         let value = [ acm.WRAM.[address] ]
-        { acm with Address = address; Value = value; Destination = Destination.Memory; }
+        { acm with Address = address; Value = value; }
     /// Addressing Mode : Absolute, X
     let public aix acm =
         let old = acm.Oprand.ByteWord()
         let cycle = calcCycle acm.Cycle old ((int)acm.Register.X)
         let address = old + (int)acm.Register.X
         let value = [ acm.WRAM.[address] ]
-        { acm with Address = address; Value = value; Cycle = cycle; Destination = Destination.Memory; }
+        { acm with Address = address; Value = value; Cycle = cycle; }
     /// Addressing Mode : Absolute, Y
     let public aiy acm =
         let old = acm.Oprand.ByteWord()
         let cycle = calcCycle acm.Cycle old ((int)acm.Register.Y)
         let address = old + (int)acm.Register.Y
         let value = [ acm.WRAM.[address] ]
-        { acm with Address = address; Value = value; Cycle = cycle; Destination = Destination.Memory; }
+        { acm with Address = address; Value = value; Cycle = cycle; }
     /// Addressing Mode : (Indirect, X)
     let public iix acm =
         let address = (int)(acm.Oprand.[0] + acm.Register.X)
         let address2 = (int)acm.WRAM.[address]
         let value = [ acm.WRAM.[address2] ]
-        { acm with Address = address2; Value = value; Destination = Destination.Memory; }
+        { acm with Address = address2; Value = value; }
     /// Addressing Mode : (Indirect), Y
     let public iiy acm =
         let address = (int)acm.WRAM.[(int)acm.Oprand.[0]]
         let address2 = address + (int)acm.Register.Y
         let cycle = calcCycle acm.Cycle address ((int)acm.Register.Y)
         let value = [ acm.WRAM.[address2] ]
-        { acm with Address = address2; Value = value; Cycle = cycle; Destination = Destination.Memory; }
+        { acm with Address = address2; Value = value; Cycle = cycle; }
     /// Addressing Mode : Implied
     let public imp acm = acm
     /// Addressing Mode : Accumlator
-    let public acm acm = { acm with Value = [ acm.Register.A ]; Destination = Destination.A; }
+    let public acm acm = { acm with Value = [ acm.Register.A ]; }
     /// Addressing Mode : Immediate
     let public imm acm = { acm with Value = acm.Oprand; }
     /// Addressing Mode : Zero Page
     let public zp_ acm =
         let mem = acm.WRAM.[acm.Address]
         let value = [ mem ]
-        { acm with Value = value; Destination = Destination.Memory; }
+        { acm with Value = value; }
     /// Addressing Mode : Absolute
     let public abs acm =
         let mem = acm.WRAM.[acm.Address]
         let value = [ mem ]
-        { acm with Value = value; Destination = Destination.Memory; }
+        { acm with Value = value; }
     /// Addressing Mode : Relative
     /// * The cycle calculation when crossing page boundaries is performed by "Instruction".
     let public rel acm =
@@ -504,7 +517,7 @@ module Cpu =
             Oprand = oprand
             Address = address
             Value = List.empty
-            Destination = Destination.None
+            Destination = Destinations.[opcode]
             /// Register
             Register = c.Register
             /// CPU Memory
@@ -526,14 +539,11 @@ module Cpu =
     /// CPU の処理を1ステップ実行する。
     /// One Step Processing.
     let public step acm =
-        //acm
-        //|> ind
-        //opcode
-        //|> createAccumulator
-        //|> readOpRand c     // Read Oprand
-        //|> ind c            // Addressing Mode
-        //|> clc c            // Calc opcode
-        //|> update c         // Update Register Flags or Memory
+        // 1. Read Memory (Addressing Mode)
+        // 2. Calculation
+        // 3. Update N and Z Status Flags.
+        // 4. Update PC.
+
         acm
 
     /// Convert the calculation result "CpuAccumulator" to "Config".

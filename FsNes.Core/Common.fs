@@ -11,6 +11,10 @@ module Common =
         |> Seq.mapi (fun i n -> n <<< (i * 8))
         |> Seq.reduce ((|||))
 
+    type Destination with
+        member x.Is(expected:Destination) =
+            x &&& expected = expected
+
 [<Extension>]
 type ByteArrayExtensions =
     [<Extension>]
