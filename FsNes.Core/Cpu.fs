@@ -3,6 +3,19 @@
 open FsNes.Core.Common
 
 module Cpu =
+    /// 未定義 実装後に削除予定
+    let private err acm =
+        failwith "未実装のアドレッシングモード"
+
+    /// 未定義 実装後に削除予定
+    let private _err acm =
+        failwith "未実装の命令"
+
+    /// Stop command.
+    let private kill acm =
+        raise <| new NesKillException()
+
+    /// Branch main function.
     let public bitcount (v:byte) =
         let a = (v &&& 0xAAuy >>> 1) + (v &&& 0x55uy)
         let b = (a &&& 0xCCuy >>> 2) + (a &&& 0x33uy)
@@ -385,10 +398,6 @@ module Cpu =
     /// Addressing Mode : Indirect   (JMP ($5597))
     let public ind acm = acm
 
-    /// エラーを吐いて停止させるためのメソッド
-    let private err acm =
-        failwith "未定義のアドレッシングモード"
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /// CPU Cycle Count
@@ -435,6 +444,28 @@ module Cpu =
             2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0xF*
         ]
 
+    /// Instructions.
+    let public Instrunctions =
+        [
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _adc; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+            _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
+        ]
+
+    /// Calculation result destination
     let public Destinations : Destination list =
         [
             //    0            1            2            3            4            5            6            7            8            9            A            B            C            D            E            F
@@ -567,14 +598,17 @@ module Cpu =
     let public addressing acm =
         AddressingModes.[acm.Opcode] acm
 
+    let public instruction acm =
+        Instrunctions.[acm.Opcode] acm
+
     /// CPU の処理を1ステップ実行する。
     /// One Step Processing.
     let public step =
         // 1. Read Memory (Addressing Mode)
         // 2. Calculation
         // 3. Update N and Z Status Flags.
-        // 4. Update PC.
-        addressing >> _adc >> updateNZ
+        // 4. Update PC     // TODO: step の Call Function で実施しているが変えるべきかも？
+        addressing >> instruction >> updateNZ
 
     /// Convert the calculation result "CpuAccumulator" to "Config".
     /// 計算結果の "CpuAccumulator" から "Config" に変換する。
