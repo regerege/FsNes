@@ -250,6 +250,7 @@ type Destination =
 
 /// CPU処理の計算途中結果を保持する構造体
 type CpuAccumulator = {
+    Size: uint16
     Cycle: int
     Opcode: int
     Oprand: byte list

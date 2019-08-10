@@ -6,8 +6,8 @@ open FsNes.Core
 
 [<TestClass>]
 type CommonTest () =
-
     [<TestMethod>]
+    [<TestCategory("Common Tests")>]
     member this.ByteWordTest () =
         let list = [ 0xAAuy; 0xCCuy; ]
         let array = [| 0xBBuy; 0xDDuy; |]

@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="TestCommon.fs" />
     <Compile Include="UnitTest\CommonTest.fs" />
     <Compile Include="UnitTest\CpuTest.fs" />
   </ItemGroup>

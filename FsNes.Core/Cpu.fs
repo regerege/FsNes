@@ -24,19 +24,19 @@ module Cpu =
         | _ -> failwith "存在しないパターンです。"
 
     /// Add
-    let public calcStatusCA a b = if a > b then Masks.StatusFlag.C else 0uy
+    let public calcStatusCA a b = if a > b then 1uy else 0uy
     /// Sub
-    let public calcStatusCS a b = if a >= b then Masks.StatusFlag.C else 0uy
+    let public calcStatusCS a b = if a >= b then 1uy else 0uy
     /// Right Bit shift
-    let public calcStatusCR v = v &&& Masks.StatusFlag.C
+    let public calcStatusCR v = v &&& 1uy
     /// Left Bit shift
-    let public calcStatusCL v = v >>> 7 &&& Masks.StatusFlag.C
-    let public calcStatusZ v = if v = 0uy then Masks.StatusFlag.Z else 0uy
+    let public calcStatusCL v = v >>> 7 &&& 1uy
+    let public calcStatusZ v = if v = 0uy then 1uy else 0uy
     let public calcStatusV a b c =
-        if a <= 0x7Fuy && b >= 0x80uy && c = true then Masks.StatusFlag.V
-        elif a >= 0x80uy && b <= 0x7Fuy && c = false then Masks.StatusFlag.V
+        if a <= 0x7Fuy && b >= 0x80uy && c = true then 1uy
+        elif a >= 0x80uy && b <= 0x7Fuy && c = false then 1uy
         else 0uy
-    let public calcStatusN v = v &&& Masks.StatusFlag.N
+    let public calcStatusN v = v >>> 7 &&& 0b10000000uy
 
     /// Stack Function
     let public push acm (value:byte array) =
@@ -200,11 +200,11 @@ module Cpu =
     let public _cld acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with D = 0uy } } }
         
     /// Set Flag : C <- 1
-    let public _stc acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with C = Masks.StatusFlag.C } } }
+    let public _stc acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with C = 1uy } } }
     /// Set Flag : I <- 1
-    let public _sti acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with I = Masks.StatusFlag.I } } }
+    let public _sti acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with I = 1uy } } }
     /// Set Flag : D <- 1
-    let public _std acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with D = Masks.StatusFlag.D } } }
+    let public _std acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with D = 1uy } } }
 
     /// Comparison operation. A & {mem}
     let public _bit acm =
@@ -213,7 +213,7 @@ module Cpu =
         let value = a &&& b
         let z = calcStatusZ value
         let v = value &&& Masks.StatusFlag.V
-        let n = value &&& Masks.StatusFlag.N
+        let n = calcStatusN value
         { acm with
             Register =
                 { acm.Register with
@@ -314,92 +314,7 @@ module Cpu =
         let pc = acm.Address - 1 |> uint16
         { acm2 with Register = { acm2.Register with PC = pc } }
 
-    /// CPU Cycle Count
-    let public Cycles =
-        [
-         // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-            7; 6; 0; 8; 3; 3; 5; 5; 3; 2; 2; 2; 4; 4; 6; 6; // 0x0*
-            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 6; 7; // 0x1*
-            6; 6; 0; 8; 3; 3; 5; 5; 4; 2; 2; 2; 4; 4; 6; 6; // 0x2*
-            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 7; 7; // 0x3*
-            6; 6; 0; 8; 3; 3; 5; 5; 3; 2; 2; 2; 3; 4; 6; 6; // 0x4*
-            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 7; 7; // 0x5*
-            6; 6; 0; 8; 3; 3; 5; 5; 4; 2; 2; 2; 5; 4; 6; 6; // 0x6*
-            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 7; 7; // 0x7*
-            2; 6; 2; 6; 3; 3; 3; 3; 2; 2; 2; 2; 4; 4; 4; 4; // 0x8*
-            2; 5; 0; 6; 4; 4; 4; 4; 2; 4; 2; 5; 5; 4; 5; 5; // 0x9*
-            2; 6; 2; 6; 3; 3; 3; 3; 2; 2; 2; 2; 4; 4; 4; 4; // 0xA*
-            2; 5; 0; 5; 4; 4; 4; 4; 2; 4; 2; 4; 4; 4; 4; 4; // 0xB*
-            2; 6; 2; 8; 3; 3; 5; 5; 2; 2; 2; 2; 4; 4; 6; 6; // 0xC*
-            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 6; 7; // 0xD*
-            2; 6; 2; 8; 3; 3; 5; 5; 2; 2; 2; 2; 4; 4; 6; 6; // 0xE*
-            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 7; 7; // 0xF*
-        ]
-
-    /// Oprand + Opcode Summary Bytes Count
-    let public Bytes =
-        [
-         // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-            1; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x0*
-            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x1*
-            3; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x2*
-            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x3*
-            1; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x4*
-            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x5*
-            1; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x6*
-            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x7*
-            2; 2; 2; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x8*
-            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x9*
-            2; 2; 2; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0xA*
-            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0xB*
-            2; 2; 2; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0xC*
-            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0xD*
-            2; 2; 2; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0xE*
-            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0xF*
-        ]
-
-    let public Destinations : Destination list =
-        [
-            //    0            1            2            3            4            5            6            7            8            9            A            B            C            D            E            F
-            enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x0*
-            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x1*
-            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x2100; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x3780; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x2100; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x2*
-            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x3*
-            enum 0x37A2; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x0020; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x4*
-            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x5*
-            enum 0x0022; enum 0x2184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186; enum 0x0004; enum 0x2184; enum 0x0184; enum 0x2180; enum 0x0020; enum 0x2184; enum 0x0182; enum 0x2186;     // 0x6*
-            enum 0x0020; enum 0x2184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186;     // 0x7*
-            enum 0x0000; enum 0x0002; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0110; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002;     // 0x8*
-            enum 0x0020; enum 0x0002; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0104; enum 0x0002; enum 0x0140; enum 0x0042; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002;     // 0x9*
-            enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C;     // 0xA*
-            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0000; enum 0x0104; enum 0x0148; enum 0x014C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C;     // 0xB*
-            enum 0x0180; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0180; enum 0x0180; enum 0x0102; enum 0x0182; enum 0x0110; enum 0x0180; enum 0x0108; enum 0x0188; enum 0x0180; enum 0x0180; enum 0x0102; enum 0x0182;     // 0xC*
-            enum 0x0020; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0102; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0102; enum 0x0182;     // 0xD*
-            enum 0x0180; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0180; enum 0x2184; enum 0x0102; enum 0x2182; enum 0x0108; enum 0x2184; enum 0x0000; enum 0x2184; enum 0x0180; enum 0x2184; enum 0x0102; enum 0x2182;     // 0xE*
-            enum 0x0020; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0102; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0102; enum 0x2182;     // 0xF*
-        ]
-
-    /// Flag Updates
-    let public UpdateNZ =
-        [
-            //0      1      2      3      4      5      6      7      8      9      A      B      C      D      E      F
-            false;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x0*
-            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x1*
-            false;  true; false;  true; false;  true;  true;  true;  true;  true;  true;  true; false;  true;  true;  true; // 0x2*
-            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x3*
-             true;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x4*
-            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x5*
-            false;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x6*
-            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x7*
-            false; false; false; false; false; false; false; false;  true; false;  true; false; false; false; false; false; // 0x8*
-            false; false; false; false; false; false; false; false;  true; false;  true; false; false; false; false; false; // 0x9*
-             true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true; // 0xA*
-            false;  true; false;  true;  true;  true;  true;  true; false;  true;  true;  true;  true;  true;  true;  true; // 0xB*
-             true;  true; false;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true; // 0xC*
-            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0xD*
-             true;  true; false;  true;  true;  true;  true;  true;  true;  true; false;  true;  true;  true;  true;  true; // 0xE*
-            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0xF*
-        ]
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /// Page Boundary Crossing
     let public calcCycle cycle address offset =
@@ -470,6 +385,122 @@ module Cpu =
     /// Addressing Mode : Indirect   (JMP ($5597))
     let public ind acm = acm
 
+    /// エラーを吐いて停止させるためのメソッド
+    let private err acm =
+        failwith "未定義のアドレッシングモード"
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /// CPU Cycle Count
+    let public Cycles =
+        [
+         // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+            7; 6; 0; 8; 3; 3; 5; 5; 3; 2; 2; 2; 4; 4; 6; 6; // 0x0*
+            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 6; 7; // 0x1*
+            6; 6; 0; 8; 3; 3; 5; 5; 4; 2; 2; 2; 4; 4; 6; 6; // 0x2*
+            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 7; 7; // 0x3*
+            6; 6; 0; 8; 3; 3; 5; 5; 3; 2; 2; 2; 3; 4; 6; 6; // 0x4*
+            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 7; 7; // 0x5*
+            6; 6; 0; 8; 3; 3; 5; 5; 4; 2; 2; 2; 5; 4; 6; 6; // 0x6*
+            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 7; 7; // 0x7*
+            2; 6; 2; 6; 3; 3; 3; 3; 2; 2; 2; 2; 4; 4; 4; 4; // 0x8*
+            2; 5; 0; 6; 4; 4; 4; 4; 2; 4; 2; 5; 5; 4; 5; 5; // 0x9*
+            2; 6; 2; 6; 3; 3; 3; 3; 2; 2; 2; 2; 4; 4; 4; 4; // 0xA*
+            2; 5; 0; 5; 4; 4; 4; 4; 2; 4; 2; 4; 4; 4; 4; 4; // 0xB*
+            2; 6; 2; 8; 3; 3; 5; 5; 2; 2; 2; 2; 4; 4; 6; 6; // 0xC*
+            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 6; 7; // 0xD*
+            2; 6; 2; 8; 3; 3; 5; 5; 2; 2; 2; 2; 4; 4; 6; 6; // 0xE*
+            2; 5; 0; 8; 4; 4; 6; 6; 2; 4; 2; 7; 4; 4; 7; 7; // 0xF*
+        ]
+
+    /// Oprand + Opcode Summary Bytes Count
+    let public Bytes =
+        [
+         // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+            1; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x0*
+            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x1*
+            3; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x2*
+            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x3*
+            1; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x4*
+            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x5*
+            1; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x6*
+            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x7*
+            2; 2; 2; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x8*
+            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0x9*
+            2; 2; 2; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0xA*
+            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0xB*
+            2; 2; 2; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0xC*
+            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0xD*
+            2; 2; 2; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0xE*
+            2; 2; 1; 2; 2; 2; 2; 2; 1; 3; 1; 3; 3; 3; 3; 3; // 0xF*
+        ]
+
+    let public Destinations : Destination list =
+        [
+            //    0            1            2            3            4            5            6            7            8            9            A            B            C            D            E            F
+            enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x0*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x1*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x2100; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x3780; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x2100; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x2*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x3*
+            enum 0x37A2; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x0020; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x4*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x5*
+            enum 0x0022; enum 0x3184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186; enum 0x0004; enum 0x2184; enum 0x0184; enum 0x2180; enum 0x0020; enum 0x2184; enum 0x0182; enum 0x2186;     // 0x6*
+            enum 0x0020; enum 0x2184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0000; enum 0x2186; enum 0x0000; enum 0x2184; enum 0x0182; enum 0x2186;     // 0x7*
+            enum 0x0000; enum 0x0002; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0110; enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002;     // 0x8*
+            enum 0x0020; enum 0x0002; enum 0x0000; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0104; enum 0x0002; enum 0x0140; enum 0x0042; enum 0x0002; enum 0x0002; enum 0x0002; enum 0x0002;     // 0x9*
+            enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C;     // 0xA*
+            enum 0x0020; enum 0x0104; enum 0x0000; enum 0x010C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C; enum 0x0000; enum 0x0104; enum 0x0148; enum 0x014C; enum 0x0110; enum 0x0104; enum 0x0108; enum 0x010C;     // 0xB*
+            enum 0x0180; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0180; enum 0x0180; enum 0x0102; enum 0x0182; enum 0x0110; enum 0x0180; enum 0x0108; enum 0x0188; enum 0x0180; enum 0x0180; enum 0x0102; enum 0x0182;     // 0xC*
+            enum 0x0020; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0102; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0000; enum 0x0182; enum 0x0000; enum 0x0180; enum 0x0102; enum 0x0182;     // 0xD*
+            enum 0x0180; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0180; enum 0x2184; enum 0x0102; enum 0x2182; enum 0x0108; enum 0x2184; enum 0x0000; enum 0x2184; enum 0x0180; enum 0x2184; enum 0x0102; enum 0x2182;     // 0xE*
+            enum 0x0020; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0102; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0000; enum 0x2182; enum 0x0000; enum 0x2184; enum 0x0102; enum 0x2182;     // 0xF*
+        ]
+
+    /// Addressing Mode List
+    let AddressingModes =
+        [
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; iix; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+            err; err; err; err; err; err; err; err; err; err; err; err; err; err; err; err;
+        ]
+
+    /// Flag Updates
+    let public UpdateNZ =
+        [
+            //0      1      2      3      4      5      6      7      8      9      A      B      C      D      E      F
+            false;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x0*
+            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x1*
+            false;  true; false;  true; false;  true;  true;  true;  true;  true;  true;  true; false;  true;  true;  true; // 0x2*
+            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x3*
+             true;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x4*
+            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x5*
+            false;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x6*
+            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0x7*
+            false; false; false; false; false; false; false; false;  true; false;  true; false; false; false; false; false; // 0x8*
+            false; false; false; false; false; false; false; false;  true; false;  true; false; false; false; false; false; // 0x9*
+             true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true; // 0xA*
+            false;  true; false;  true;  true;  true;  true;  true; false;  true;  true;  true;  true;  true;  true;  true; // 0xB*
+             true;  true; false;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true;  true; // 0xC*
+            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0xD*
+             true;  true; false;  true;  true;  true;  true;  true;  true;  true; false;  true;  true;  true;  true;  true; // 0xE*
+            false;  true; false;  true; false;  true;  true;  true; false;  true; false;  true; false;  true;  true;  true; // 0xF*
+        ]
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
     let public createConfig () : Config =
         {
             /// CPU Cycle Skip Count
@@ -509,9 +540,10 @@ module Cpu =
 
     /// Create CPU Accumulator
     let public createAccumulator opcode (c:Config) : CpuAccumulator =
-        let size = Bytes.[opcode] - 1
-        let oprand, address = read size c.Register.PC c.WRAM
+        let size = Bytes.[opcode]
+        let oprand, address = read (size-1) c.Register.PC c.WRAM
         {
+            Size = (uint16)size
             Cycle = Cycles.[opcode]
             Opcode = opcode
             Oprand = oprand
@@ -533,23 +565,47 @@ module Cpu =
         else acm
 
     let public addressing acm =
-        let opcode = acm.Opcode
-        acm
+        AddressingModes.[acm.Opcode] acm
 
     /// CPU の処理を1ステップ実行する。
     /// One Step Processing.
-    let public step acm =
+    let public step =
         // 1. Read Memory (Addressing Mode)
         // 2. Calculation
         // 3. Update N and Z Status Flags.
         // 4. Update PC.
-
-        acm
+        addressing >> _adc >> updateNZ
 
     /// Convert the calculation result "CpuAccumulator" to "Config".
     /// 計算結果の "CpuAccumulator" から "Config" に変換する。
-    let public convertConfig (c:Config) (acm:CpuAccumulator) =
-        { c with Register = acm.Register; WRAM = acm.WRAM; CpuSkip = acm.Cycle }
+    let public convertConfig (config:Config) (acm:CpuAccumulator) =
+        let config2 =
+            { config with
+                WRAM = acm.WRAM
+                // Set Cpu Calculation Skip Cycles.
+                CpuSkip = acm.Cycle
+                // Go to next Instruction.
+                Register = { acm.Register with PC = acm.Register.PC + acm.Size }
+            }
+
+        let updates =
+            [
+                Destination.Address, fun (c:Config) -> failwith "未定義"
+                Destination.Memory, id
+                Destination.A, fun (c:Config) -> { c with Register = { c.Register with A = acm.Value.[0] } }
+                Destination.X, fun (c:Config) -> { c with Register = { c.Register with X = acm.Register.X } }
+                Destination.Y, fun (c:Config) -> { c with Register = { c.Register with Y = acm.Register.Y } }
+                Destination.PC, fun (c:Config) -> { c with Register = { c.Register with PC = acm.Register.PC } }
+                Destination.S, fun (c:Config) -> { c with Register = { c.Register with S = acm.Register.S } }
+            ]
+
+        updates
+        |> List.fold(fun (c:Config) (dest, f) ->
+            if acm.Destination.Is(dest) then f c
+            else c
+        ) config2
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /// Cpu Process Running.
     let public run (c:Config) =
