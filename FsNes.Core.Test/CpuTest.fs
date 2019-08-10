@@ -40,8 +40,6 @@ type CpuTest () =
 
     [<TestMethod>]
     [<TestCategory("CPU Instructions")>]
-    [<TestCategory("0x61")>]
-    [<TestCategory("ADC")>]
     [<TestCategory("(Indirect, X)")>]
     member this.``0x61 ADC (Indirect, X) :: Carry On`` () =
         // A <- A + {data] + C

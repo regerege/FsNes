@@ -587,6 +587,12 @@ module Cpu =
             WRAM = c.WRAM
         }
 
+    let public addressing acm =
+        AddressingModes.[acm.Opcode] acm
+
+    let public instruction acm =
+        Instrunctions.[acm.Opcode] acm
+
     let public updateNZ acm =
         if UpdateNZ.[acm.Opcode] then
             let value = byte acm.Value.[0]
@@ -595,11 +601,21 @@ module Cpu =
             { acm with Register = { acm.Register with P = { acm.Register.P with N = n; Z = z } } }
         else acm
 
-    let public addressing acm =
-        AddressingModes.[acm.Opcode] acm
-
-    let public instruction acm =
-        Instrunctions.[acm.Opcode] acm
+    let public update (acm:CpuAccumulator) =
+        let a =
+            if acm.Destination.Is(Destination.A) then
+                acm.Value.[0]
+            else
+                acm.Register.A
+        { acm with
+            Register =
+                { acm.Register with
+                    // Calc result or Unchanged value.
+                    A = a
+                    // Go to next Instruction.
+                    PC = acm.Register.PC + acm.Size
+                }
+        }
 
     /// CPU の処理を1ステップ実行する。
     /// One Step Processing.
@@ -607,37 +623,18 @@ module Cpu =
         // 1. Read Memory (Addressing Mode)
         // 2. Calculation
         // 3. Update N and Z Status Flags.
-        // 4. Update PC     // TODO: step の Call Function で実施しているが変えるべきかも？
-        addressing >> instruction >> updateNZ
+        // 4. Update PC
+        addressing >> instruction >> updateNZ >> update
 
     /// Convert the calculation result "CpuAccumulator" to "Config".
     /// 計算結果の "CpuAccumulator" から "Config" に変換する。
     let public convertConfig (config:Config) (acm:CpuAccumulator) =
-        let config2 =
-            { config with
-                WRAM = acm.WRAM
-                // Set Cpu Calculation Skip Cycles.
-                CpuSkip = acm.Cycle
-                // Go to next Instruction.
-                Register = { acm.Register with PC = acm.Register.PC + acm.Size }
-            }
-
-        let updates =
-            [
-                Destination.Address, fun (c:Config) -> failwith "未定義"
-                Destination.Memory, id
-                Destination.A, fun (c:Config) -> { c with Register = { c.Register with A = acm.Value.[0] } }
-                Destination.X, fun (c:Config) -> { c with Register = { c.Register with X = acm.Register.X } }
-                Destination.Y, fun (c:Config) -> { c with Register = { c.Register with Y = acm.Register.Y } }
-                Destination.PC, fun (c:Config) -> { c with Register = { c.Register with PC = acm.Register.PC } }
-                Destination.S, fun (c:Config) -> { c with Register = { c.Register with S = acm.Register.S } }
-            ]
-
-        updates
-        |> List.fold(fun (c:Config) (dest, f) ->
-            if acm.Destination.Is(dest) then f c
-            else c
-        ) config2
+        { config with
+            CpuSkip = acm.Cycle
+            Register = acm.Register
+            WRAM = acm.WRAM
+            //Interrupt = acm.Interrupt
+        }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
