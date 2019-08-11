@@ -2,7 +2,7 @@
 
 open System
 
-type NesKillException =
+type public NesKillException =
     inherit Exception 
     new () = { inherit Exception() }
     new (message:string) = { inherit Exception(message) }

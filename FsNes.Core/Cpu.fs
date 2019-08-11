@@ -16,40 +16,40 @@ module Cpu =
         raise <| new NesKillException()
 
     /// Branch main function.
-    let public bitcount (v:byte) =
+    let private bitcount (v:byte) =
         let a = (v &&& 0xAAuy >>> 1) + (v &&& 0x55uy)
         let b = (a &&& 0xCCuy >>> 2) + (a &&& 0x33uy)
         let c = (b &&& 0xF0uy >>> 4) + (b &&& 0x0Fuy)
         c
 
     /// Increment and Decrement Active Pettern.
-    let public (|IDC|IDX|IDY|) = function
+    let private (|IDC|IDX|IDY|) = function
         | Some v, None, None -> IDC v
         | None, Some v, None -> IDX v
         | None, None, Some v -> IDY v
         | _ -> failwith "存在しないパターンです。"
 
     /// JMP Instruction Active Pattern
-    let public (|JMPABS|JMPIND|) op =
+    let private (|JMPABS|JMPIND|) op =
         match op with
         | 0x4C -> JMPABS
         | 0x6C -> JMPIND
         | _ -> failwith "存在しないパターンです。"
 
     /// Add
-    let public calcStatusCA a b = if a > b then 1uy else 0uy
+    let private calcStatusCA a b = if a > b then 1uy else 0uy
     /// Sub
-    let public calcStatusCS a b = if a >= b then 1uy else 0uy
+    let private calcStatusCS a b = if a >= b then 1uy else 0uy
     /// Right Bit shift
-    let public calcStatusCR v = v &&& 1uy
+    let private calcStatusCR v = v &&& 1uy
     /// Left Bit shift
-    let public calcStatusCL v = v >>> 7 &&& 1uy
-    let public calcStatusZ v = if v = 0uy then 1uy else 0uy
-    let public calcStatusV a b c =
+    let private calcStatusCL v = v >>> 7 &&& 1uy
+    let private calcStatusZ v = if v = 0uy then 1uy else 0uy
+    let private calcStatusV a b c =
         if a <= 0x7Fuy && b >= 0x80uy && c = true then 1uy
         elif a >= 0x80uy && b <= 0x7Fuy && c = false then 1uy
         else 0uy
-    let public calcStatusN v = v >>> 7 &&& 0b10000000uy
+    let private calcStatusN v = v >>> 7 &&& 0b10000000uy
 
     /// Stack Function
     let public push acm (value:byte array) =
@@ -72,7 +72,7 @@ module Cpu =
         { acm with Register = { acm.Register with S = s } },value
 
     /// Compare Main Function
-    let public compare acm a =
+    let private compare acm a =
         let b = acm.Value.[0]
         let value = a - b
         let c = calcStatusCS a b
@@ -81,7 +81,7 @@ module Cpu =
         { acm with Register = { acm.Register with P = { acm.Register.P with N = n; Z = z; C = c } }}
 
     /// Branch Main Function
-    let public branch (digits, comp) acm =
+    let private branch (digits, comp) acm =
         if acm.Register.P.[digits] = comp then
             let a = acm.Register.PC + 1us
             let b = a + (uint16)acm.Value.[0]
@@ -91,7 +91,7 @@ module Cpu =
             acm
 
     /// Increment and Decrement Main Function.
-    let public incAdec op acm =
+    let private incAdec op acm =
         let value = op acm.Value.[0] 1uy
         let z = calcStatusZ value
         let n = calcStatusN value
@@ -110,7 +110,7 @@ module Cpu =
         }
     
     /// Plus Instruction.
-    let public _adc acm =
+    let private _adc acm =
         let a = acm.Register.A
         let value = acm.Register.A + acm.Value.[0] + (acm.Register.P.C &&& 1uy)
         let c = calcStatusCA a value
@@ -124,28 +124,28 @@ module Cpu =
         }
 
     /// Other Illegal Opcode.
-    let public _anc acm =
+    let private _anc acm =
         let value = acm.Register.A &&& acm.Value.[0]
         { acm with
             Value = [value]
             Register = { acm.Register with A = value } }
 
     /// Logical Conjunction.
-    let public _and acm =
+    let private _and acm =
         let value = acm.Register.A &&& acm.Value.[0]
         { acm with
             Value = [value]
             Register = { acm.Register with A = value } }
 
     /// Unoffical Opcode.
-    let public _ane acm =
+    let private _ane acm =
         let value = (acm.Register.A ||| 0xEEuy) &&& acm.Register.X &&& acm.Value.[0]
         { acm with
             Value = [value]
             Register = { acm.Register with A = value } }
 
     /// Unoffical Opcode.
-    let public _arr acm =
+    let private _arr acm =
         let a = acm.Register.A &&& acm.Value.[0]
         let value = (a >>> 1) ||| (acm.Register.P.C <<< 7)
         let c = calcStatusCR a
@@ -157,7 +157,7 @@ module Cpu =
                     P = { acm.Register.P with C = c } } }
         
     /// Left Rotate
-    let public _asl acm =
+    let private _asl acm =
         let v = acm.Value.[0]
         let value = v <<< 1
         let c = calcStatusCL v
@@ -175,7 +175,7 @@ module Cpu =
                     P = { acm.Register.P with C = c } } }
 
     /// Other Illegal Opcode.
-    let public _asr acm =
+    let private _asr acm =
         let v = acm.Register.A &&& acm.Value.[0]
         let value = v >>> 1
         let c = calcStatusCR v
@@ -187,45 +187,45 @@ module Cpu =
                     P = { acm.Register.P with C = c } } }
 
     /// Branch : C = 0
-    let public _bcc = branch (0, 0uy)
+    let private _bcc = branch (0, 0uy)
     /// Branch : C = 1
-    let public _bcs = branch (0, 1uy)
+    let private _bcs = branch (0, 1uy)
     /// Branch : Z = 0
-    let public _bne = branch (1, 0uy)
+    let private _bne = branch (1, 0uy)
     /// Branch : Z = 1
-    let public _beq = branch (1, 1uy)
+    let private _beq = branch (1, 1uy)
     /// Branch : V = 0
-    let public _bvc = branch (6, 0uy)
+    let private _bvc = branch (6, 0uy)
     /// Branch : V = 1
-    let public _bvs = branch (6, 1uy)
+    let private _bvs = branch (6, 1uy)
     /// Branch : N = 0
-    let public _bpl = branch (7, 0uy)
+    let private _bpl = branch (7, 0uy)
     /// Branch : N = 1
-    let public _bmi = branch (7, 1uy)
+    let private _bmi = branch (7, 1uy)
 
     /// Clear Flag : C <- 0
-    let public _clc acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with C = 0uy } } }
+    let private _clc acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with C = 0uy } } }
     /// Clear Flag : I <- 0
-    let public _cli acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with I = 0uy } } }
+    let private _cli acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with I = 0uy } } }
     /// Clear Flag : V <- 0
-    let public _clv acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with V = 0uy } } }
+    let private _clv acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with V = 0uy } } }
     /// Clear Flag : D <- 0
-    let public _cld acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with D = 0uy } } }
+    let private _cld acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with D = 0uy } } }
         
     /// Set Flag : C <- 1
-    let public _stc acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with C = 1uy } } }
+    let private _stc acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with C = 1uy } } }
     /// Set Flag : I <- 1
-    let public _sti acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with I = 1uy } } }
+    let private _sti acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with I = 1uy } } }
     /// Set Flag : D <- 1
-    let public _std acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with D = 1uy } } }
+    let private _std acm : CpuAccumulator = { acm with Register = { acm.Register with P = { acm.Register.P with D = 1uy } } }
 
     /// Comparison operation. A & {mem}
-    let public _bit acm =
+    let private _bit acm =
         let a = acm.Register.A
         let b = acm.Value.[0]
         let value = a &&& b
         let z = calcStatusZ value
-        let v = value &&& Masks.StatusFlag.V
+        let v = value >>> 6 &&& 1uy
         let n = calcStatusN value
         { acm with
             Register =
@@ -236,14 +236,14 @@ module Cpu =
                             N = n } } }
 
     /// Comparison operation. A - {mem}
-    let public _cmp acm = compare acm acm.Register.A
+    let private _cmp acm = compare acm acm.Register.A
     /// Comparison operation. X - {mem}
-    let public _cpx acm = compare acm acm.Register.X
+    let private _cpx acm = compare acm acm.Register.X
     /// Comparison operation. Y - {mem}
-    let public _cpy acm = compare acm acm.Register.Y
+    let private _cpy acm = compare acm acm.Register.Y
 
     /// Other Illegal Opcode.
-    let public _dcp acm =
+    let private _dcp acm =
         let a = acm.Register.A
         let b = acm.Value.[0] - 1uy
         let value = a - b
@@ -261,7 +261,7 @@ module Cpu =
                             C = c } } }
 
     /// Xor A, Memory
-    let public _eor acm =
+    let private _eor acm =
         let a = acm.Register.A
         let b = acm.Value.[0]
         let value = a ^^^ b
@@ -277,20 +277,20 @@ module Cpu =
                             Z = z} } }
 
     /// Decrement Memory
-    let public _dec acm = incAdec (-) acm
+    let private _dec acm = incAdec (-) acm
     /// Decrement Index X
-    let public _dex acm = incAdec (-) acm
+    let private _dex acm = incAdec (-) acm
     /// Decrement Index Y
-    let public _dey acm = incAdec (-) acm
+    let private _dey acm = incAdec (-) acm
     /// Increment Memory
-    let public _inc acm = incAdec (+) acm
+    let private _inc acm = incAdec (+) acm
     /// Increment Index X
-    let public _inx acm = incAdec (+) acm
+    let private _inx acm = incAdec (+) acm
     /// Increment Index Y
-    let public _iny acm = incAdec (+) acm
+    let private _iny acm = incAdec (+) acm
 
     /// Other Illegal Opcode.
-    let public _isb acm =
+    let private _isb acm =
         let a = acm.Value.[0]
         let b = 1uy
         let value = a - b
@@ -309,7 +309,7 @@ module Cpu =
                             Z = z
                             C = c } } }
 
-    let public _jmp acm =
+    let private _jmp acm =
         let pc =
             match acm.Opcode with
             | JMPABS -> (uint16)acm.Address
@@ -319,7 +319,7 @@ module Cpu =
                 (uint16)acm.WRAM.[addrL] ||| ((uint16)acm.WRAM.[addrH] <<< 8)
         { acm with Register = { acm.Register with PC = pc } }
 
-    let public _jsr acm =
+    let private _jsr acm =
         let value = acm.Register.PC + 2us
         let addrL = (byte)value
         let addrH = (byte)(value >>> 8)
@@ -330,78 +330,78 @@ module Cpu =
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /// Page Boundary Crossing
-    let public calcCycle cycle address offset =
+    let private calcCycle cycle address offset =
         let a = ((address &&& 0x00FF) + offset) >>> 8
         cycle + a
 
     /// Addressing Mode : NOP
-    let public nopAM acm = acm
+    let private nopAM acm = acm
     /// Addressing Mode : Zero Page, X
-    let public zpx acm =
+    let private zpx acm =
         let address = (int)((byte)acm.Oprand.[0] + acm.Register.X)
         let value = [ acm.WRAM.[address] ]
         { acm with Address = address; Value = value; }
     /// Addressing Mode : Zero Page, Y
-    let public zpy acm =
+    let private zpy acm =
         let address = (int)((byte)acm.Oprand.[0] + acm.Register.Y)
         let value = [ acm.WRAM.[address] ]
         { acm with Address = address; Value = value; }
     /// Addressing Mode : Absolute, X
-    let public aix acm =
+    let private aix acm =
         let old = acm.Oprand.ByteWord()
         let cycle = calcCycle acm.Cycle old ((int)acm.Register.X)
         let address = old + (int)acm.Register.X
         let value = [ acm.WRAM.[address] ]
         { acm with Address = address; Value = value; Cycle = cycle; }
     /// Addressing Mode : Absolute, Y
-    let public aiy acm =
+    let private aiy acm =
         let old = acm.Oprand.ByteWord()
         let cycle = calcCycle acm.Cycle old ((int)acm.Register.Y)
         let address = old + (int)acm.Register.Y
         let value = [ acm.WRAM.[address] ]
         { acm with Address = address; Value = value; Cycle = cycle; }
     /// Addressing Mode : (Indirect, X)
-    let public iix acm =
+    let private iix acm =
         let address = (int)(acm.Oprand.[0] + acm.Register.X)
         let address2 = (int)acm.WRAM.[address]
         let value = [ acm.WRAM.[address2] ]
         { acm with Address = address2; Value = value; }
     /// Addressing Mode : (Indirect), Y
-    let public iiy acm =
+    let private iiy acm =
         let address = (int)acm.WRAM.[(int)acm.Oprand.[0]]
         let address2 = address + (int)acm.Register.Y
         let cycle = calcCycle acm.Cycle address ((int)acm.Register.Y)
         let value = [ acm.WRAM.[address2] ]
         { acm with Address = address2; Value = value; Cycle = cycle; }
     /// Addressing Mode : Implied
-    let public imp acm = acm
+    let private imp acm = acm
     /// Addressing Mode : Accumlator
-    let public acm acm = { acm with Value = [ acm.Register.A ]; }
+    let private acm acm = { acm with Value = [ acm.Register.A ]; }
     /// Addressing Mode : Immediate
-    let public imm acm = { acm with Value = acm.Oprand; }
+    let private imm acm = { acm with Value = acm.Oprand; }
     /// Addressing Mode : Zero Page
-    let public zp_ acm =
+    let private zp_ acm =
         let mem = acm.WRAM.[acm.Address]
         let value = [ mem ]
         { acm with Value = value; }
     /// Addressing Mode : Absolute
-    let public abs acm =
+    let private abs acm =
         let mem = acm.WRAM.[acm.Address]
         let value = [ mem ]
         { acm with Value = value; }
     /// Addressing Mode : Relative
     /// * The cycle calculation when crossing page boundaries is performed by "Instruction".
-    let public rel acm =
+    let private rel acm =
         let mem = acm.WRAM.[acm.Address]
         let value = [ mem ]
         { acm with Value = value; }
     /// Addressing Mode : Indirect   (JMP ($5597))
-    let public ind acm = acm
+    let private ind acm = acm
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /// CPU Cycle Count
-    let public Cycles =
+    let private Cycles =
         [
          // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
             7; 6; 0; 8; 3; 3; 5; 5; 3; 2; 2; 2; 4; 4; 6; 6; // 0x0*
@@ -423,7 +423,7 @@ module Cpu =
         ]
 
     /// Oprand + Opcode Summary Bytes Count
-    let public Bytes =
+    let private Bytes =
         [
          // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
             1; 2; 1; 2; 2; 2; 2; 2; 1; 2; 1; 2; 3; 3; 3; 3; // 0x0*
@@ -445,7 +445,7 @@ module Cpu =
         ]
 
     /// Instructions.
-    let public Instrunctions =
+    let private Instrunctions =
         [
             _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
             _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err; _err
@@ -466,7 +466,7 @@ module Cpu =
         ]
 
     /// Calculation result destination
-    let public Destinations : Destination list =
+    let private Destinations : Destination list =
         [
             //    0            1            2            3            4            5            6            7            8            9            A            B            C            D            E            F
             enum 0x0000; enum 0x0104; enum 0x0000; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186; enum 0x0000; enum 0x0104; enum 0x0184; enum 0x0184; enum 0x0000; enum 0x0104; enum 0x0182; enum 0x0186;     // 0x0*
@@ -509,7 +509,7 @@ module Cpu =
         ]
 
     /// Flag Updates
-    let public UpdateNZ =
+    let private UpdateNZ =
         [
             //0      1      2      3      4      5      6      7      8      9      A      B      C      D      E      F
             false;  true; false;  true; false;  true;  true;  true; false;  true;  true;  true; false;  true;  true;  true; // 0x0*
@@ -533,7 +533,7 @@ module Cpu =
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /// Read Oprand
-    let public read (size:int) (pc:uint16) (wram:byte array) =
+    let private read (size:int) (pc:uint16) (wram:byte array) =
         if size = 0 then
             List.Empty, -1
         else
@@ -575,13 +575,13 @@ module Cpu =
 
     /// Read memory from addressing mode.
     /// アドレッシングモードからメモリを読み込む。
-    let public addressing acm = AddressingModes.[acm.Opcode] acm
+    let private addressing acm = AddressingModes.[acm.Opcode] acm
 
     /// Calculation the instruction.
-    let public instruction acm = Instrunctions.[acm.Opcode] acm
+    let private instruction acm = Instrunctions.[acm.Opcode] acm
 
     /// Update N and Z Status Flags.
-    let public updateNZ acm =
+    let private updateNZ acm =
         if UpdateNZ.[acm.Opcode] then
             let value = byte acm.Value.[0]
             let n = value &&& (1uy <<< 7)                           // 負の数なら7bit目を 1
@@ -590,7 +590,7 @@ module Cpu =
         else acm
 
     /// Update the calculation result to the register.
-    let public update (acm:CpuAccumulator) =
+    let private update (acm:CpuAccumulator) =
         let a =
             if acm.Destination.Is(Destination.A) then
                 acm.Value.[0]
@@ -608,7 +608,7 @@ module Cpu =
 
     /// Convert from "CpuAccumulator" to "Config".
     /// 「CpuAccumulator」から「Config」に変換する。
-    let public convertConfig (config:Config) (acm:CpuAccumulator) =
+    let private convertConfig (config:Config) (acm:CpuAccumulator) =
         { config with
             CpuSkip = acm.Cycle
             Register = acm.Register

@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <Compile Include="NesKillException.fs" />
-    <Compile Include="Masks.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Cpu.fs" />

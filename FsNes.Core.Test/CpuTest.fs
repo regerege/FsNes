@@ -18,7 +18,7 @@ type CpuTest () =
                 VRAM = [| for i in 0..0xFFFF -> 0uy |]
                 Interrupt = Interrupt.Empty
             }
-        let acm = Cpu.createAccumulator 0x00 config
+        let acm = Cpu.createAccumulator config
 
         // PUSH‚ÌƒeƒXƒg
         let acm2 = Cpu.push acm [| 0x11uy; 0x33uy; 0x55uy; 0x77uy; |]
@@ -111,5 +111,5 @@ type CpuTest () =
         config.WRAM.[0x0033] <- 0x05uy      // readdata
 
         // Testing
-        let ret = Cpu.run config
+        let ret = Cpu.step config
         ret.IsConfig(expected);
