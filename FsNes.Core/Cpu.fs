@@ -532,22 +532,6 @@ module Cpu =
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    let public createConfig () : Config =
-        {
-            /// CPU Cycle Skip Count
-            CpuSkip = 0
-            /// PPU Cycle Skip Count
-            PpuSkip = 0
-            /// Register
-            Register = { A = 0uy; X = 0uy; Y = 0uy; PC = 0us; S = 6uy; P = { C = 0uy; Z = 0uy; I = 0uy; D = 0uy; B = 0uy; V = 0uy; N = 0uy; } }
-            /// CPU Memory
-            WRAM = [| for i in 0..0xFFFF -> 0uy |]
-            /// Video Memory
-            VRAM = [| for i in 0..0xFFFF -> 0uy |]
-            /// Hardware and Software Interrupt
-            Interrupt = Interrupt.Empty
-        }
-        
     /// Read Oprand
     let public read (size:int) (pc:uint16) (wram:byte array) =
         if size = 0 then
@@ -569,8 +553,10 @@ module Cpu =
                 |> Seq.reduce ((|||))
             oprand, address
 
-    /// Create CPU Accumulator
-    let public createAccumulator opcode (c:Config) : CpuAccumulator =
+    /// Convert from "Config" to "CpuAccumulator".
+    /// 「Config」から「CpuAccumulator」に変換する。
+    let public createAccumulator (c:Config) : CpuAccumulator =
+        let opcode = (int)c.WRAM.[(int)c.Register.PC]
         let size = Bytes.[opcode]
         let oprand, address = read (size-1) c.Register.PC c.WRAM
         {
@@ -587,12 +573,14 @@ module Cpu =
             WRAM = c.WRAM
         }
 
-    let public addressing acm =
-        AddressingModes.[acm.Opcode] acm
+    /// Read memory from addressing mode.
+    /// アドレッシングモードからメモリを読み込む。
+    let public addressing acm = AddressingModes.[acm.Opcode] acm
 
-    let public instruction acm =
-        Instrunctions.[acm.Opcode] acm
+    /// Calculation the instruction.
+    let public instruction acm = Instrunctions.[acm.Opcode] acm
 
+    /// Update N and Z Status Flags.
     let public updateNZ acm =
         if UpdateNZ.[acm.Opcode] then
             let value = byte acm.Value.[0]
@@ -601,6 +589,7 @@ module Cpu =
             { acm with Register = { acm.Register with P = { acm.Register.P with N = n; Z = z } } }
         else acm
 
+    /// Update the calculation result to the register.
     let public update (acm:CpuAccumulator) =
         let a =
             if acm.Destination.Is(Destination.A) then
@@ -617,17 +606,8 @@ module Cpu =
                 }
         }
 
-    /// CPU の処理を1ステップ実行する。
-    /// One Step Processing.
-    let public step =
-        // 1. Read Memory (Addressing Mode)
-        // 2. Calculation
-        // 3. Update N and Z Status Flags.
-        // 4. Update PC
-        addressing >> instruction >> updateNZ >> update
-
-    /// Convert the calculation result "CpuAccumulator" to "Config".
-    /// 計算結果の "CpuAccumulator" から "Config" に変換する。
+    /// Convert from "CpuAccumulator" to "Config".
+    /// 「CpuAccumulator」から「Config」に変換する。
     let public convertConfig (config:Config) (acm:CpuAccumulator) =
         { config with
             CpuSkip = acm.Cycle
@@ -638,20 +618,15 @@ module Cpu =
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    /// Cpu Process Running.
-    let public run (c:Config) =
-        match c.Interrupt with
-        | Interrupt.NMI -> c
-        | Interrupt.Reset -> c
-        | Interrupt.IRQ
-        | Interrupt.BRK ->
-            c
-        | _ ->
-            let opcode = (int)c.WRAM.[(int)c.Register.PC]
-            if opcode = 0 then
-                { c with Interrupt = Interrupt.BRK }
-            else
-                let acm = createAccumulator opcode c
-                step acm
-                |> convertConfig c
+    /// CPU の処理を1ステップ実行する。
+    /// One Step Processing.
+    let public step (config:Config) =
+        createAccumulator config    // 1. Convert from "Config" to "CpuAccumulator".
+        |> addressing               // 2. Read memory from addressing mode.
+        |> instruction              // 3. Calculation the instruction.
+        |> updateNZ                 // 4. Update N and Z Status Flags.
+        |> update                   // 5. Update the calculation result to the register.
+        |> convertConfig config     // 6. Convert from "CpuAccumulator" to "Config"
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
