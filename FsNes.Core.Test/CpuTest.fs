@@ -46,69 +46,8 @@ type CpuTest () =
         // 0xFDuy + 5uy + 0uy = 2uy
         // A = 2uy. //
 
-        // Expected
-        let expected : Config =
-            {
-                CpuSkip = 6
-                PpuSkip = 0
-                Register =
-                    {
-                        A = 2uy
-                        X = 3uy
-                        Y = 5uy
-                        PC = 0x8002us
-                        S = 0uy
-                        P =
-                            {
-                                C = 1uy
-                                Z = 0uy
-                                I = 0uy
-                                D = 0uy
-                                B = 0uy
-                                V = 0uy
-                                N = 0uy
-                            }
-                    }
-                WRAM = [| for i in 0..0xFFFF -> 0uy |]
-                VRAM = [| for i in 0..0xFFFF -> 0uy |]
-                Interrupt = Interrupt.Empty
-            }
-        expected.WRAM.[0x8000] <- 0x61uy      // opcode
-        expected.WRAM.[0x8001] <- 0x11uy      // oprand :: 0x11 + 0x03 = 0x14
-        expected.WRAM.[0x0014] <- 0x33uy      // data (pointer)
-        expected.WRAM.[0x0033] <- 0x05uy      // data (target)
-
-        // Test Value
-        let config : Config =
-            {
-                CpuSkip = 0
-                PpuSkip = 0
-                Register =
-                    {
-                        A = 0xFDuy
-                        X = 3uy
-                        Y = 5uy
-                        PC = 0x8000us
-                        S = 0uy
-                        P =
-                            {
-                                C = 0uy
-                                Z = 1uy
-                                I = 0uy
-                                D = 0uy
-                                B = 0uy
-                                V = 1uy
-                                N = 1uy
-                            }
-                    }
-                WRAM = [| for i in 0..0xFFFF -> 0uy |]
-                VRAM = [| for i in 0..0xFFFF -> 0uy |]
-                Interrupt = Interrupt.Empty
-            }
-        config.WRAM.[0x8000] <- 0x61uy      // opcode
-        config.WRAM.[0x8001] <- 0x11uy      // oprand :: 0x11 + 0x03 = 0x14
-        config.WRAM.[0x0014] <- 0x33uy      // data (pointer)
-        config.WRAM.[0x0033] <- 0x05uy      // readdata
+        let config = TestReader.Read @"..\..\..\InstructionTests\0x61_ADC\IN_CarryOn.test"
+        let expected = TestReader.Read @"..\..\..\InstructionTests\0x61_ADC\OUT_CarryOn.test"
 
         // Testing
         let ret = Cpu.step config

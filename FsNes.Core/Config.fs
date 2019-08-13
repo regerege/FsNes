@@ -208,11 +208,11 @@ type Register = {
 
 /// 割り込み処理
 type Interrupt =
-    | Empty
-    | Reset
-    | NMI
-    | IRQ
-    | BRK
+    | Empty = 0
+    | Reset = 1
+    | NMI = 2
+    | IRQ = 3
+    | BRK = 4
 
 /// NES Config
 type Config = {

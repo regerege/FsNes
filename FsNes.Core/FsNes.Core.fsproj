@@ -11,8 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="NesKillException.fs" />
     <Compile Include="Config.fs" />
+    <Compile Include="NesKillException.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Cpu.fs" />
   </ItemGroup>

@@ -13,7 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="TestCommon.fs" />
+    <Content Include="InstructionTests\0x61_ADC\OUT_CarryOn.test" />
+    <Content Include="InstructionTests\Base.test" />
+    <Content Include="InstructionTests\0x61_ADC\IN_CarryOn.test" />
+    <Compile Include="TestReader.fs" />
+    <Compile Include="TestReaderTest.fs" />
+    <Compile Include="ConfigExtensions.fs" />
     <Compile Include="CommonTest.fs" />
     <Compile Include="CpuTest.fs" />
   </ItemGroup>
@@ -27,6 +32,12 @@
   <ItemGroup>
     <ProjectReference Include="..\ChainingAssertion\ChainingAssertion.csproj" />
     <ProjectReference Include="..\FsNes.Core\FsNes.Core.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="ChainingAssertion">
+      <HintPath>..\ChainingAssertion\bin\Debug\netcoreapp3.0\ChainingAssertion.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>
