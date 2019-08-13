@@ -3,6 +3,7 @@ namespace FsNes.Core.Test
 open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open FsNes.Core
+open FsNes.Core.Test.TestCommon
 
 [<TestClass>]
 type CpuTest () =
@@ -49,5 +50,5 @@ type CpuTest () =
         let expected = TestReader.Read @"..\..\..\InstructionTests\0x61_ADC\OUT_CarryOn.test"
 
         // Testing
-        let ret = Cpu.step config
-        ret.IsConfig(expected);
+        Cpu.step config
+        |> isConfig expected

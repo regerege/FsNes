@@ -1,13 +1,11 @@
 ﻿namespace FsNes.Core.Test
 
-open System.Runtime.CompilerServices
-open Microsoft.VisualStudio.TestTools.UnitTesting
 open FsNes.Core
+open Microsoft.VisualStudio.TestTools.UnitTesting
 
-[<Extension>]
-type ConfigExtensions =
-    [<Extension>]
-    static member inline IsConfig(actual : Config, expected : Config) =
+module TestCommon =
+    let isConfig (expected:Config) (actual:Config) =
+        //actual.IsConfig(expected)
         actual.CpuSkip.Is(expected.CpuSkip, "CpuSkip is not equal.")
         actual.PpuSkip.Is(expected.PpuSkip, "PpuSkip is not equal.")
         actual.Register.A.Is(expected.Register.A, "Register A is not equal.")

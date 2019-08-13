@@ -19,6 +19,7 @@
     <Compile Include="TestReader.fs" />
     <Compile Include="TestReaderTest.fs" />
     <Compile Include="ConfigExtensions.fs" />
+    <Compile Include="TestCommon.fs" />
     <Compile Include="CommonTest.fs" />
     <Compile Include="CpuTest.fs" />
   </ItemGroup>

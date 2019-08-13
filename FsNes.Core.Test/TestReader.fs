@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open FsNes.Core
 
 module TestReader =
-    let private initConfig =
+    let private initConfig () =
         {
             CpuSkip = 0
             PpuSkip = 0
@@ -140,7 +140,7 @@ module TestReader =
         | _ -> config,(wram,vram)
 
     let Read (path:string) : Config =
-        let config = initConfig
+        let config = initConfig()
         File.ReadLines path
         |> Seq.filter skipComment
         |> Seq.fold foldConfig (config,(-1,-1))
