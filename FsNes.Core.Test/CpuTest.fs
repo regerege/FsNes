@@ -43,8 +43,7 @@ type CpuTest () =
     [<TestCategory("(Indirect, X)")>]
     member this.``0x61 ADC (Indirect, X) :: Carry On`` () =
         // A <- A + {data] + C
-        // 0xFDuy + 5uy + 0uy = 2uy
-        // A = 2uy. //
+        // 0xFDuy + 5uy + 1uy = 2uy
 
         let config = TestReader.Read @"..\..\..\InstructionTests\0x61_ADC\IN_CarryOn.test"
         let expected = TestReader.Read @"..\..\..\InstructionTests\0x61_ADC\OUT_CarryOn.test"
