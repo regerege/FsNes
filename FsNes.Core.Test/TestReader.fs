@@ -1,4 +1,4 @@
-﻿namespace FsNes.Core
+﻿namespace FsNes.Core.Test
 
 open System
 open System.IO

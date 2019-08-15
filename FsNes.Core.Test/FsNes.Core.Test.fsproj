@@ -13,13 +13,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="InstructionTests\Stack\INIT_DATA.test" />
+    <Content Include="InstructionTests\Stack\PUSH_Expected.test" />
+    <Content Include="InstructionTests\Stack\POP_Expected.test" />
     <Content Include="InstructionTests\0x61_ADC\OUT_CarryOn.test" />
     <Content Include="InstructionTests\Base.test" />
     <Content Include="InstructionTests\0x61_ADC\IN_CarryOn.test" />
+    <Compile Include="AssertModule.fs" />
     <Compile Include="TestReader.fs" />
     <Compile Include="TestReaderTest.fs" />
-    <Compile Include="ConfigExtensions.fs" />
-    <Compile Include="TestCommon.fs" />
     <Compile Include="CommonTest.fs" />
     <Compile Include="CpuTest.fs" />
   </ItemGroup>
@@ -31,14 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ChainingAssertion\ChainingAssertion.csproj" />
     <ProjectReference Include="..\FsNes.Core\FsNes.Core.fsproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="ChainingAssertion">
-      <HintPath>..\ChainingAssertion\bin\Debug\netcoreapp3.0\ChainingAssertion.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>

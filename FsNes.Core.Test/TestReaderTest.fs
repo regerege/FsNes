@@ -1,7 +1,8 @@
-﻿namespace FsNes.Core
+﻿namespace FsNes.Core.Test
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open FsNes.Core
+open FsNes.Core.Test.AssertModule
 
 [<TestClass>]
 type TestReaderTest () =
@@ -18,4 +19,4 @@ type TestReaderTest () =
                 VRAM = [| for i in 0..0xFFFF -> 0uy |]
                 Interrupt = Interrupt.Empty
             }
-        a.IsStructuralEqual(b)
+        isConfig b a
