@@ -112,7 +112,7 @@ module Cpu =
     /// Plus Instruction.
     let private _adc acm =
         let a = acm.Register.A
-        let value = acm.Register.A + acm.Value.[0] + (acm.Register.P.C &&& 1uy)
+        let value = a + acm.Value.[0] + acm.Register.P.C
         let c = calcStatusCA a value
         let v = calcStatusV a value true
         { acm with
@@ -336,42 +336,53 @@ module Cpu =
 
     /// Addressing Mode : NOP
     let private nopAM acm = acm
-    /// Addressing Mode : Zero Page, X
+    /// Addressing Mode : Zero Page, X  ||  PEEK(({addr} + X) % 256)
     let private zpx acm =
-        let address = (int)((byte)acm.Oprand.[0] + acm.Register.X)
-        let value = [ acm.WRAM.[address] ]
-        { acm with Address = address; Value = value; }
-    /// Addressing Mode : Zero Page, Y
-    let private zpy acm =
-        let address = (int)((byte)acm.Oprand.[0] + acm.Register.Y)
-        let value = [ acm.WRAM.[address] ]
-        { acm with Address = address; Value = value; }
-    /// Addressing Mode : Absolute, X
-    let private aix acm =
-        let old = acm.Oprand.ByteWord()
-        let cycle = calcCycle acm.Cycle old ((int)acm.Register.X)
-        let address = old + (int)acm.Register.X
-        let value = [ acm.WRAM.[address] ]
-        { acm with Address = address; Value = value; Cycle = cycle; }
-    /// Addressing Mode : Absolute, Y
-    let private aiy acm =
-        let old = acm.Oprand.ByteWord()
-        let cycle = calcCycle acm.Cycle old ((int)acm.Register.Y)
-        let address = old + (int)acm.Register.Y
-        let value = [ acm.WRAM.[address] ]
-        { acm with Address = address; Value = value; Cycle = cycle; }
-    /// Addressing Mode : (Indirect, X)
-    let private iix acm =
         let address = (int)(acm.Oprand.[0] + acm.Register.X)
-        let address2 = (int)acm.WRAM.[address]
-        let value = [ acm.WRAM.[address2] ]
-        { acm with Address = address2; Value = value; }
-    /// Addressing Mode : (Indirect), Y
+        let value = [ acm.WRAM.[address] ]
+        { acm with Address = address; Value = value; }
+    /// Addressing Mode : Zero Page, Y  ||  PEEK(({addr} + Y) % 256)
+    let private zpy acm =
+        let address = (int)(acm.Oprand.[0] + acm.Register.Y)
+        let value = [ acm.WRAM.[address] ]
+        { acm with Address = address; Value = value; }
+    /// Addressing Mode : Absolute, X   ||  PEEK({addr} + X)
+    let private aix acm =
+        let address = acm.Address + (int)acm.Register.X
+        let cycle = calcCycle acm.Cycle acm.Address ((int)acm.Register.X)
+        let value = [ acm.WRAM.[address] ]
+        { acm with Address = address; Value = value; Cycle = cycle; }
+    /// Addressing Mode : Absolute, Y   ||  PEEK({addr} + Y)
+    let private aiy acm =
+        let address = acm.Address + (int)acm.Register.Y
+        let cycle = calcCycle acm.Cycle acm.Address ((int)acm.Register.Y)
+        let value = [ acm.WRAM.[address] ]
+        { acm with Address = address; Value = value; Cycle = cycle; }
+    /// Addressing Mode : (Indirect, X) ||  PEEK(PEEK(({addr} + X) % 256) + PEEK(({addr} + X + 1) % 256) * 256)
+    let private iix acm =
+        let f a = acm.WRAM.[(int)a]
+        let address =
+            [
+                acm.Oprand.[0] + acm.Register.X         // 下位アドレス
+                acm.Oprand.[0] + acm.Register.X + 1uy   // 上位アドレス
+            ]
+            |> List.map f
+            |> Common.getByteWord
+        let value = [ acm.WRAM.[address] ]
+        { acm with Address = address; Value = value; }
+    /// Addressing Mode : (Indirect), Y ||  PEEK(PEEK({addr}) + PEEK(({addr} + 1) % 256) * 256 + Y)
     let private iiy acm =
-        let address = (int)acm.WRAM.[(int)acm.Oprand.[0]]
+        let f a = acm.WRAM.[(int)a]
+        let address =
+            [
+                acm.Oprand.[0]          // 下位アドレス
+                acm.Oprand.[0] + 1uy    // 上位アドレス
+            ]
+            |> List.map f
+            |> Common.getByteWord
         let address2 = address + (int)acm.Register.Y
-        let cycle = calcCycle acm.Cycle address ((int)acm.Register.Y)
         let value = [ acm.WRAM.[address2] ]
+        let cycle = calcCycle acm.Cycle address ((int)acm.Register.Y)
         { acm with Address = address2; Value = value; Cycle = cycle; }
     /// Addressing Mode : Implied
     let private imp acm = acm
@@ -544,14 +555,7 @@ module Cpu =
                 |> Seq.take size
                 |> Seq.map get
                 |> Seq.toList
-            let address =
-                seq {
-                    yield! oprand
-                    yield! [ for i in oprand -> 0uy ]
-                }
-                |> Seq.map (int)
-                |> Seq.reduce ((|||))
-            oprand, address
+            oprand, oprand.ByteWord()
 
     /// Convert from "Config" to "CpuAccumulator".
     /// 「Config」から「CpuAccumulator」に変換する。

@@ -13,18 +13,22 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="InstructionTests\0x61_ADC\01_normal_in.test" />
+    <None Include="InstructionTests\0x61_ADC\01_normal_out.test" />
+    <None Include="InstructionTests\0x61_ADC\02_carryon_in.test" />
+    <None Include="InstructionTests\0x61_ADC\02_carryon_out.test" />
     <Content Include="InstructionTests\Stack\INIT_DATA.test" />
     <Content Include="InstructionTests\Stack\PUSH_Expected.test" />
     <Content Include="InstructionTests\Stack\POP_Expected.test" />
-    <Content Include="InstructionTests\0x61_ADC\OUT_CarryOn.test" />
     <Content Include="InstructionTests\Base.test" />
-    <Content Include="InstructionTests\0x61_ADC\IN_CarryOn.test" />
     <Compile Include="AssertModule.fs" />
     <Compile Include="TestReader.fs" />
     <Compile Include="TestReaderTest.fs" />
     <Compile Include="CommonTest.fs" />
     <Compile Include="CpuTest.fs" />
   </ItemGroup>
+
+  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0-preview-20190606-02" />

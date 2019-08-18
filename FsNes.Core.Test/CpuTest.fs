@@ -55,7 +55,5 @@ type CpuTest () =
     [<TestCategory("CPU Instructions")>]
     [<TestCategory("(Indirect, X)")>]
     member this.``0x61 ADC (Indirect, X) :: Carry On`` () =
-        // ** Carry On Test
-        // A <- A + {data] + C
-        // 0xFDuy + 5uy + 1uy = 2uy
-        test @"0x61_ADC\IN_CarryOn.test" @"0x61_ADC\OUT_CarryOn.test"
+        test @"0x61_ADC\01_normal_in.test" @"0x61_ADC\01_normal_out.test"
+        test @"0x61_ADC\02_carryon_in.test" @"0x61_ADC\02_carryon_out.test"
